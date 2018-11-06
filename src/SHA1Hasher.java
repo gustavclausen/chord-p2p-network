@@ -4,13 +4,25 @@ import java.security.NoSuchAlgorithmException;
 
 public class SHA1Hasher {
     public static BigInteger hashAddress(String ip, int port) {
-        return hash(ip.concat(Integer.toString(port)));
+        String formattedAddress = ip.concat(" " + Integer.toString(port));
+        BigInteger hash = hash(formattedAddress);
+
+        if (hash == null)
+            throw new NumberFormatException("Could not hash the address: " + formattedAddress);
+
+        return hash;
     }
 
     public static BigInteger hashKey(int key) {
-        return hash(Integer.toString(key));
+        BigInteger hash = hash(Integer.toString(key));
+
+        if (hash == null)
+            throw new NumberFormatException("Could not hash the key: " + key);
+
+        return hash;
     }
 
+    // Source: http://www.sha1-online.com/sha1-java/ (accessed 2018-11-06)
     private static BigInteger hash(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
