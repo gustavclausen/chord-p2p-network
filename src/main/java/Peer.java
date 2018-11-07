@@ -1,6 +1,6 @@
 package main.java;
 
-import main.java.messages.JoinMessage;
+import main.java.messages.Message;
 import main.java.messages.PeerDTO;
 import main.java.utilities.Logging;
 import main.java.utilities.SHA1Hasher;
@@ -23,38 +23,34 @@ public class Peer implements Serializable {
     Peer(InetSocketAddress ownAddress) {
         this.ownAddress = ownAddress;
 
-        try {
-            this.hashId = SHA1Hasher.hashAddress(ownAddress.getHostName(), ownAddress.getPort());
+        this.hashId = SHA1Hasher.hashAddress(ownAddress.getHostName(), ownAddress.getPort());
 
-            System.out.println(String.format("Peer started on %s:%d. ID: %s\n",
-                                             ownAddress.getHostName(),
-                                             ownAddress.getPort(),
-                                             this.hashId));
+        System.out.println(String.format("Peer started on %s:%d. ID: %s",
+                                         ownAddress.getHostName(),
+                                         ownAddress.getPort(),
+                                         this.hashId));
 
-            Listener listener = new Listener(this);
-            listener.start();
-        } catch (IOException e) {
-            System.err.println(String.format("Failed to start peer. Reason: %s", e.getMessage()));
-        }
+        new Listener(this).start();
     }
 
-    static class Listener extends Thread {
-        private ServerSocket socket;
-        private Peer peer;
+    private class Listener extends Thread {
+        private final Peer peer;
 
-        private Listener(Peer peer) throws IOException {
+        private Listener(Peer peer) {
             this.peer = peer;
-            this.socket = new ServerSocket(this.peer.ownAddress.getPort());
         }
 
         @Override
         public void run() {
-            while (true) try {
-                Socket clientSocket = this.socket.accept();
-                ClientHandler clientHandler = new ClientHandler(clientSocket, this.peer);
-                clientHandler.start();
+            try (
+                ServerSocket socket = new ServerSocket(peer.getOwnAddress().getPort())
+            ) {
+                System.out.println("Now listening...");
 
-                Logging.debugLog(clientSocket, "Incoming connection", false);
+                while(true) {
+                    Socket clientSocket = socket.accept();
+                    new ClientHandler(clientSocket, this.peer).start();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -64,36 +60,43 @@ public class Peer implements Serializable {
     static class ClientHandler extends Thread {
         private Socket clientSocket;
         private Peer peer;
-        ObjectInputStream inputStream;
-        ObjectOutputStream outputStream;
 
-        private ClientHandler(Socket clientSocket, Peer peer) throws IOException {
+        private ClientHandler(Socket clientSocket, Peer peer) {
             this.clientSocket = clientSocket;
             this.peer = peer;
-            this.inputStream = new ObjectInputStream(this.clientSocket.getInputStream());
-            this.outputStream = new ObjectOutputStream(this.clientSocket.getOutputStream());
         }
 
         @Override
         public void run() {
-            while (true) try {
-                Object message = this.inputStream.readObject();
+            try (
+                ObjectInputStream inputStream = new ObjectInputStream(this.clientSocket.getInputStream());
+                ObjectOutputStream outputStream = new ObjectOutputStream(this.clientSocket.getOutputStream())
+            ) {
+                Object input = inputStream.readObject();
 
-                if (message instanceof JoinMessage) {
-                    PlacementHandler.placeNewPeer(this.peer, (JoinMessage) message);
-                } else if (message instanceof String) {
-                    switch ((String) message) {
+                if (input instanceof Message) {
+                    Message message = (Message) input;
+                    switch (message.getType()) {
+                        case JOIN:
+                            PlacementHandler.placeNewPeer(this.peer, message);
+                            break;
+                        case SET_PREDECESSOR:
+                            InetSocketAddress addressOfInstantiator = message.getAddressOfInstantiator();
+                            this.peer.setPredecessor(new Socket(addressOfInstantiator.getHostName(),
+                                addressOfInstantiator.getPort()));
+                            break;
+                    }
+                } else if (input instanceof String) {
+                    switch ((String) input) {
                         case "GETPEERINFO":
-                            this.outputStream.writeObject(new PeerDTO(this.peer));
+                            outputStream.writeObject(new PeerDTO(this.peer));
                             break;
                         default:
                             break;
                     }
                 }
-
             } catch (EOFException e) {
-                Logging.debugLog(this.clientSocket, "Client disconnected", false);
-                return;
+                // Do nothing... Object is deserialized
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
@@ -101,68 +104,38 @@ public class Peer implements Serializable {
     }
 
     void connectToPeer(InetSocketAddress addressOfExistingPeer) {
-        Socket socketToPeer = null;
-        JoinMessage message = new JoinMessage(this.ownAddress);
-
-        try {
-            socketToPeer = new Socket(addressOfExistingPeer.getHostName(),
-                                      addressOfExistingPeer.getPort());
-
+        try (
+            Socket socketToPeer = new Socket(addressOfExistingPeer.getHostName(),
+                                             addressOfExistingPeer.getPort());
+            ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream())
+        ) {
             if (socketToPeer.isConnected())
-                Logging.debugLog(null, "Connected to peer", false);
+                Logging.debugLog("Connected to peer.", false);
 
-            ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream());
-            outputStream.writeObject(message);
+            outputStream.writeObject(new Message(Message.Type.JOIN, this.ownAddress));
         } catch (IOException e) {
-            Logging.debugLog(socketToPeer,
-                               String.format("Failed to connect to peer. Reason: %s", e.getMessage()),
-                         true);
+            e.printStackTrace();
         }
     }
 
-    void sendMessageToPeer(Socket socketToPeer, JoinMessage message) {
-        ObjectOutputStream outputStream = null;
-
-        try {
-            outputStream = new ObjectOutputStream(socketToPeer.getOutputStream());
+    void sendMessageToPeer(Socket socketToPeer, Message message) {
+        try (ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream())) {
             outputStream.writeObject(message);
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                if (outputStream != null) {
-                    outputStream.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
     PeerDTO requestInfoFromPeer(Socket socketToPeer) {
-        ObjectOutputStream outputStream = null;
-        ObjectInputStream inputStream = null;
-
-        try {
-            outputStream = new ObjectOutputStream(socketToPeer.getOutputStream());
-            inputStream = new ObjectInputStream(socketToPeer.getInputStream());
-
+        try (
+            ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream());
+            ObjectInputStream inputStream = new ObjectInputStream(socketToPeer.getInputStream())
+        ) {
             outputStream.writeObject("GETPEERINFO");
 
             return (PeerDTO) inputStream.readObject();
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                if (outputStream != null) {
-                    outputStream.close();
-                }
-                if (inputStream != null) {
-                    inputStream.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
 
         return null;
@@ -180,15 +153,55 @@ public class Peer implements Serializable {
         return predecessor;
     }
 
+    public void setPredecessor(Socket predecessor) {
+        this.predecessor = predecessor;
+
+        if (predecessor != null)
+            Logging.debugLog(String.format("Updated predecessor to %s:%d",
+                                           predecessor.getInetAddress().getHostAddress(),
+                                           predecessor.getPort()),
+                             false);
+    }
+
     public Socket getNextPredecessor() {
         return nextPredecessor;
+    }
+
+    public void setNextPredecessor(Socket nextPredecessor) {
+        this.nextPredecessor = nextPredecessor;
+
+        if (nextPredecessor != null)
+            Logging.debugLog(String.format("Updated next predecessor to %s:%d",
+                                           nextPredecessor.getInetAddress().getHostAddress(),
+                                           nextPredecessor.getPort()),
+                             false);
     }
 
     public Socket getSuccessor() {
         return successor;
     }
 
+    public void setSuccessor(Socket successor) {
+        this.successor = successor;
+
+        if (successor != null)
+            Logging.debugLog(String.format("Updated successor to %s:%d",
+                                           successor.getInetAddress().getHostAddress(),
+                                           successor.getPort()),
+                             false);
+    }
+
     public Socket getNextSuccessor() {
         return nextSuccessor;
+    }
+
+    public void setNextSuccessor(Socket nextSuccessor) {
+        this.nextSuccessor = nextSuccessor;
+
+        if (nextSuccessor != null)
+            Logging.debugLog(String.format("Updated next successor to %s:%d",
+                                           nextSuccessor.getInetAddress().getHostAddress(),
+                                           nextSuccessor.getPort()),
+                             false);
     }
 }

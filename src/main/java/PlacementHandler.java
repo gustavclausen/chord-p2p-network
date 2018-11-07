@@ -1,12 +1,14 @@
 package main.java;
 
-import main.java.messages.JoinMessage;
+import main.java.messages.Message;
 
+import java.io.IOException;
 import java.math.BigInteger;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 class PlacementHandler {
-    static void placeNewPeer(Peer currentPeer, JoinMessage message) {
+    static void placeNewPeer(Peer currentPeer, Message message) {
         BigInteger hashIdOfInstantiator = message.getHashIdOfInstantiator();
 
         if (currentPeer.getHashId().compareTo(hashIdOfInstantiator) == 0)
@@ -44,11 +46,20 @@ class PlacementHandler {
         }
     }
 
-    private static void placeAsPredecessor(Peer currentPeer, JoinMessage message) {
+    private static void placeAsPredecessor(Peer currentPeer, Message message) {
         System.out.println("PREDECESSOR");
     }
 
-    private static void placeAsSuccessor(Peer currentPeer, JoinMessage message) {
-        System.out.println("SUCCESSOR");
+    private static void placeAsSuccessor(Peer currentPeer, Message message) {
+        InetSocketAddress addressOfInstantiator = message.getAddressOfInstantiator();
+
+        try (Socket socketToPeer = new Socket(addressOfInstantiator.getHostName(),
+                                              addressOfInstantiator.getPort())) {
+            currentPeer.setSuccessor(socketToPeer);
+            currentPeer.sendMessageToPeer(socketToPeer, new Message(Message.Type.SET_PREDECESSOR,
+                                                                    currentPeer.getOwnAddress()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

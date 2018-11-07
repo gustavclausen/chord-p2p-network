@@ -6,14 +6,20 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
 
-public class JoinMessage implements Serializable {
+public class Message implements Serializable {
+    private Type type;
     private InetSocketAddress addressOfInstantiator;
     private BigInteger hashIdOfInstantiator;
 
-    public JoinMessage(InetSocketAddress addressOfInstantiator) {
+    public Message(Type type, InetSocketAddress addressOfInstantiator) {
+        this.type = type;
         this.addressOfInstantiator = addressOfInstantiator;
         this.hashIdOfInstantiator = SHA1Hasher.hashAddress(addressOfInstantiator.getHostName(),
                                                            addressOfInstantiator.getPort());
+    }
+
+    public Type getType() {
+        return type;
     }
 
     public InetSocketAddress getAddressOfInstantiator() {
@@ -23,4 +29,9 @@ public class JoinMessage implements Serializable {
     public BigInteger getHashIdOfInstantiator() {
         return hashIdOfInstantiator;
     }
+
+    public enum Type {
+         JOIN,
+         SET_PREDECESSOR
+     }
 }
