@@ -1,3 +1,5 @@
+package main.java;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -57,9 +59,9 @@ public class NetworkEntryHandler {
         int ownPort = parsePort(programArguments[1]);
         InetSocketAddress ownAddress = getLocalAddress(ownPort);
 
-        System.out.println(String.format("Starting a new network. Binds to port %s...", ownAddress.getPort()));
+        System.out.println("Trying to start a new network ...");
 
-        // TODO: Do the actual magic here
+        new Peer(ownAddress);
     }
 
     private static void joinExistingNetwork(String[] programArguments) {
@@ -69,15 +71,17 @@ public class NetworkEntryHandler {
         InetSocketAddress ownAddress = getLocalAddress(ownPort);
 
         try {
-            InetSocketAddress fullAddressOfExistingPeer = new InetSocketAddress(peerAddress, peerPort);
+            InetSocketAddress addressOfExistingPeer = new InetSocketAddress(peerAddress, peerPort);
 
-            System.out.println(String.format("Trying to join network by peer (%s:%d). " +
-                                             "Binds to port %s...",
-                                             fullAddressOfExistingPeer.getHostName(),
-                                             fullAddressOfExistingPeer.getPort(),
+            Peer peer = new Peer(ownAddress);
+
+            System.out.println(String.format("Trying to join network by peer %s:%d ...",
+                                             addressOfExistingPeer.getHostName(),
+                                             addressOfExistingPeer.getPort(),
+                                             ownAddress.getHostName(),
                                              ownAddress.getPort()));
 
-            // TODO: Do the actual magic here
+            peer.connectToPeer(addressOfExistingPeer);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format("The given address of the peer (IP: %s PORT: %s)" +
                                                              "is not valid. Please read the documentation.",
