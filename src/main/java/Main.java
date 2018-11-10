@@ -95,7 +95,7 @@ public class Main {
 
         System.out.println("Trying to start a new network ...");
 
-        new Peer(ownIp, ownPort);
+        new Peer(new PeerAddress(ownIp, ownPort));
     }
 
     private static void joinExistingNetwork(String[] programArguments) {
@@ -105,13 +105,13 @@ public class Main {
         int peerPort = parsePort(programArguments[2]);
 
         try {
-            Peer peer = new Peer(ownIp, ownPort);
+            Peer peer = new Peer(new PeerAddress(ownIp, ownPort));
 
             System.out.println(String.format("Trying to join network by peer %s:%d ...",
                     peerAddress,
                     peerPort));
 
-            peer.connectToOtherPeer(peerAddress, peerPort);
+            peer.connectToOtherPeer(new PeerAddress(peerAddress, peerPort));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format("The given address of the peer (IP: %s PORT: %s)" +
                             "is not valid. Please read the documentation.",

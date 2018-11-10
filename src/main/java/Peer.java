@@ -1,5 +1,6 @@
 package main.java;
 
+import main.java.messages.JoinMessage;
 import main.java.utilities.Logging;
 import main.java.utilities.SHA1Hasher;
 
@@ -7,23 +8,24 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 
 public class Peer implements Serializable {
     private final BigInteger hashId;
+    private final PeerAddress address;
 
     private Socket succesor;
     private Socket nextSuccessor;
 
-    Peer(String ip, int port) {
-        this.hashId = SHA1Hasher.hashAddress(ip, port);
+    Peer(PeerAddress address) {
+        this.address = address;
+        this.hashId = SHA1Hasher.hashAddress(this.address);
 
         System.out.println(String.format("Peer started on %s:%d. ID: %s",
-                                         ip,
-                                         port,
+                                         this.address.getIp(),
+                                         this.address.getPort(),
                                          this.hashId));
 
-        new Listener(port).start();
+        new Listener(this.address.getPort()).start();
     }
 
     private class Listener extends Thread {
@@ -63,7 +65,10 @@ public class Peer implements Serializable {
             ) {
                 Object input = inputStream.readObject();
 
-                System.out.println(input);
+                if (input instanceof JoinMessage) {
+                    PeerAddress address = ((JoinMessage) input).getNewPeerAddress();
+                    System.out.println(address.getIp() + address.getPort());
+                }
             } catch (EOFException e) {
                 // Do nothing...  Object is deserialized
             } catch (IOException | ClassNotFoundException e) {
@@ -72,15 +77,15 @@ public class Peer implements Serializable {
         }
     }
 
-    void connectToOtherPeer(String ipOfPeer, int portOfPeer) {
+    void connectToOtherPeer(PeerAddress addressOfPeer) {
         try (
-             Socket peerSocket = new Socket(ipOfPeer, portOfPeer);
+             Socket peerSocket = new Socket(addressOfPeer.getIp(), addressOfPeer.getPort());
              ObjectOutputStream outputStream = new ObjectOutputStream(peerSocket.getOutputStream())
         ) {
             if (peerSocket.isConnected())
                 Logging.debugLog("Connected to peer.", false);
 
-            outputStream.writeObject("Hey");
+            outputStream.writeObject(new JoinMessage(this.address));
         } catch (IOException e) {
             e.printStackTrace();
         }

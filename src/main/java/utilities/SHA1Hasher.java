@@ -1,12 +1,14 @@
 package main.java.utilities;
 
+import main.java.PeerAddress;
+
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class SHA1Hasher {
-    public static BigInteger hashAddress(String ip, int port) {
-        String formattedAddress = ip.concat(" " + Integer.toString(port));
+    public static BigInteger hashAddress(PeerAddress address) {
+        String formattedAddress = address.getIp().concat(" " + Integer.toString(address.getPort()));
         BigInteger hash = hash(formattedAddress);
 
         if (hash == null)
