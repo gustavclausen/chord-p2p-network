@@ -1,6 +1,7 @@
 package main.java;
 
 import main.java.messages.JoinMessage;
+import main.java.messages.RestructureMessage;
 import main.java.utilities.Logging;
 import main.java.utilities.SHA1Hasher;
 
@@ -9,11 +10,11 @@ import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Peer implements Serializable {
+class Peer implements Serializable {
     private final BigInteger hashId;
     private final PeerAddress address;
 
-    private Socket succesor;
+    private Socket successor;
     private Socket nextSuccessor;
 
     Peer(PeerAddress address) {
@@ -25,24 +26,24 @@ public class Peer implements Serializable {
                                          this.address.getPort(),
                                          this.hashId));
 
-        new Listener(this.address.getPort()).start();
+        new Listener(this).start();
     }
 
     private class Listener extends Thread {
-        private final int port;
+        private final Peer peer;
 
-        private Listener(int port) {
-            this.port = port;
+        private Listener(Peer peer) {
+            this.peer = peer;
         }
 
         @Override
         public void run() {
-            try(ServerSocket socket = new ServerSocket(this.port)) {
+            try(ServerSocket socket = new ServerSocket(this.peer.address.getPort())) {
                 System.out.println("Listening...");
 
                 while (true) {
                     Socket clientSocket = socket.accept();
-                    new ClientHandler(clientSocket).start();
+                    new ClientHandler(clientSocket, this.peer).start();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -52,9 +53,11 @@ public class Peer implements Serializable {
 
     private class ClientHandler extends Thread {
         private final Socket clientSocket;
+        private final Peer peer;
 
-        private ClientHandler(Socket clientSocket) {
+        private ClientHandler(Socket clientSocket, Peer peer) {
             this.clientSocket = clientSocket;
+            this.peer = peer;
         }
 
         @Override
@@ -66,8 +69,14 @@ public class Peer implements Serializable {
                 Object input = inputStream.readObject();
 
                 if (input instanceof JoinMessage) {
-                    PeerAddress address = ((JoinMessage) input).getNewPeerAddress();
-                    System.out.println(address.getIp() + address.getPort());
+                    PlacementHandler.placeNewPeer(this.peer, (JoinMessage) input);
+                } else if (input instanceof RestructureMessage) {
+                    RestructureMessage message = (RestructureMessage) input;
+                    switch (message.getType()) {
+                        case NEW_SUCCESSOR:
+                            this.peer.setSuccessor(message.getPeerAddress());
+                            break;
+                    }
                 }
             } catch (EOFException e) {
                 // Do nothing...  Object is deserialized
@@ -89,5 +98,45 @@ public class Peer implements Serializable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    void sendMessageToSuccessor(RestructureMessage message) {
+        try (ObjectOutputStream outputStream = new ObjectOutputStream(this.successor.getOutputStream())) {
+            outputStream.writeObject(message);
+        } catch (IOException e) {
+            // TODO: Check if disconnected or non-existing here
+            e.printStackTrace();
+        }
+    }
+
+    void sendMessageToNextSuccessor() {
+
+    }
+
+    PeerAddress getPeerAddress() {
+        return this.address;
+    }
+
+
+    public Socket getSuccessor() {
+        return this.successor;
+    }
+
+    public void setSuccessor(PeerAddress addressOfNewSuccessor) {
+        try {
+            this.successor = new Socket(addressOfNewSuccessor.getIp(), addressOfNewSuccessor.getPort());
+
+            Logging.debugLog(String.format("Updated successor to %s:%d",
+                    addressOfNewSuccessor.getIp(),
+                    addressOfNewSuccessor.getPort()),
+                    false);
+        } catch (IOException e) {
+            // TODO: Check if disconnected or non-existing here
+            e.printStackTrace();
+        }
+    }
+
+    public Socket getNextSuccessor() {
+        return this.nextSuccessor;
     }
 }
