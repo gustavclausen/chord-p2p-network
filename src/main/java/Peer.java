@@ -1,6 +1,8 @@
 package main.java;
 
 import main.java.messages.JoinMessage;
+import main.java.messages.Message;
+import main.java.messages.RequestMessage;
 import main.java.messages.RestructureMessage;
 import main.java.utilities.Logging;
 import main.java.utilities.SHA1Hasher;
@@ -9,6 +11,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 class Peer implements Serializable {
     private final BigInteger hashId;
@@ -64,23 +67,39 @@ class Peer implements Serializable {
         public void run() {
             try (
                 ObjectInputStream inputStream = new ObjectInputStream(this.clientSocket.getInputStream());
-                //ObjectOutputStream outputStream = new ObjectOutputStream(this.clientSocket.getOutputStream())
+                ObjectOutputStream outputStream = new ObjectOutputStream(this.clientSocket.getOutputStream())
             ) {
                 Object input = inputStream.readObject();
 
                 if (input instanceof JoinMessage) {
-                    PlacementHandler.placeNewPeer(this.peer, (JoinMessage) input);
-                } else if (input instanceof RestructureMessage) {
-                    RestructureMessage message = (RestructureMessage) input;
-                    switch (message.getType()) {
-                        case NEW_SUCCESSOR:
-                            this.peer.setSuccessor(message.getPeerAddress());
-                            break;
+                    PlacementHandler.placeNewPeer(this.peer, (JoinMessage) input, this.clientSocket);
+                } else if (input instanceof Message) {
+                    Message message = (Message) input;
+
+                    if (message instanceof RestructureMessage) {
+                        RestructureMessage restructureMessage = (RestructureMessage) message;
+                        switch (restructureMessage.getType()) {
+                            case NEW_SUCCESSOR:
+                                this.peer.setSuccessor(restructureMessage.getSenderPeerAddress());
+                                break;
+                            default:
+                                break;
+                        }
+                    } else if (message instanceof RequestMessage) {
+                        RequestMessage requestMessage = (RequestMessage) message;
+
+                        switch (requestMessage.getType()) {
+                            case HASHID:
+                                outputStream.writeObject(this.peer.hashId);
+                            default:
+                                break;
+                        }
                     }
                 }
             } catch (EOFException e) {
                 // Do nothing...  Object is deserialized
             } catch (IOException | ClassNotFoundException e) {
+                // TODO: Check if disconnect
                 e.printStackTrace();
             }
         }
@@ -94,14 +113,14 @@ class Peer implements Serializable {
             if (peerSocket.isConnected())
                 Logging.debugLog("Connected to peer.", false);
 
-            outputStream.writeObject(new JoinMessage(this.address));
+            outputStream.writeObject(new JoinMessage(this.address, this.address));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    void sendMessageToSuccessor(RestructureMessage message) {
-        try (ObjectOutputStream outputStream = new ObjectOutputStream(this.successor.getOutputStream())) {
+    void sendMessageToPeer(Socket socket, Message message) {
+        try (ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream())) {
             outputStream.writeObject(message);
         } catch (IOException e) {
             // TODO: Check if disconnected or non-existing here
@@ -109,8 +128,30 @@ class Peer implements Serializable {
         }
     }
 
+    Object sendRequestToPeer(RequestMessage message, Socket socket) {
+        try(
+            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream())
+        ) {
+            outputStream.writeObject(message);
+
+            Object response;
+            while ((response = inputStream.readObject()) != null) {
+                return response;
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
     void sendMessageToNextSuccessor() {
 
+    }
+
+    public BigInteger getHashId() {
+        return this.hashId;
     }
 
     PeerAddress getPeerAddress() {

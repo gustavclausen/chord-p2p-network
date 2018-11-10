@@ -2,10 +2,10 @@ package main.java.messages;
 
 import main.java.PeerAddress;
 
-public class RestructureMessage extends Message {
+public class RequestMessage extends Message {
     private final Type type;
 
-    public RestructureMessage(PeerAddress senderPeerAddress, Type type) {
+    public RequestMessage(PeerAddress senderPeerAddress, Type type) {
         super(senderPeerAddress);
         this.type = type;
     }
@@ -15,7 +15,6 @@ public class RestructureMessage extends Message {
     }
 
     public enum Type {
-        NEW_SUCCESSOR,
-        NEW_NEXT_SUCCESSOR
+        HASHID
     }
 }

@@ -6,11 +6,12 @@ import main.java.utilities.SHA1Hasher;
 import java.io.Serializable;
 import java.math.BigInteger;
 
-public class JoinMessage implements Serializable {
+public class JoinMessage extends Message implements Serializable {
     private final PeerAddress newPeerAddress;
     private final BigInteger hashId;
 
-    public JoinMessage(PeerAddress newPeerAddress) {
+    public JoinMessage(PeerAddress senderPeerAddress, PeerAddress newPeerAddress) {
+        super(senderPeerAddress);
         this.newPeerAddress = newPeerAddress;
         this.hashId = SHA1Hasher.hashAddress(this.newPeerAddress);
     }
