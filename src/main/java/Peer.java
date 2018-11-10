@@ -15,8 +15,6 @@ public class Peer implements Serializable {
     private InetSocketAddress ownAddress;
     private BigInteger hashId;
 
-    private Socket predecessor;
-    private Socket nextPredecessor; // Predecessor's predecessor
     private Socket successor;
     private Socket nextSuccessor; // Successor's successor
 
@@ -42,9 +40,7 @@ public class Peer implements Serializable {
 
         @Override
         public void run() {
-            try (
-                ServerSocket socket = new ServerSocket(peer.getOwnAddress().getPort())
-            ) {
+            try (ServerSocket socket = new ServerSocket(peer.getOwnAddress().getPort())) {
                 System.out.println("Now listening...");
 
                 while(true) {
@@ -80,11 +76,6 @@ public class Peer implements Serializable {
                         case JOIN:
                             PlacementHandler.placeNewPeer(this.peer, message);
                             break;
-                        case SET_PREDECESSOR:
-                            InetSocketAddress addressOfInstantiator = message.getAddressOfInstantiator();
-                            this.peer.setPredecessor(new Socket(addressOfInstantiator.getHostName(),
-                                addressOfInstantiator.getPort()));
-                            break;
                     }
                 } else if (input instanceof String) {
                     switch ((String) input) {
@@ -118,63 +109,12 @@ public class Peer implements Serializable {
         }
     }
 
-    void sendMessageToPeer(Socket socketToPeer, Message message) {
-        try (ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream())) {
-            outputStream.writeObject(message);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    PeerDTO requestInfoFromPeer(Socket socketToPeer) {
-        try (
-            ObjectOutputStream outputStream = new ObjectOutputStream(socketToPeer.getOutputStream());
-            ObjectInputStream inputStream = new ObjectInputStream(socketToPeer.getInputStream())
-        ) {
-            outputStream.writeObject("GETPEERINFO");
-
-            return (PeerDTO) inputStream.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
     public InetSocketAddress getOwnAddress() {
         return ownAddress;
     }
 
     public BigInteger getHashId() {
         return this.hashId;
-    }
-
-    public Socket getPredecessor() {
-        return predecessor;
-    }
-
-    public void setPredecessor(Socket predecessor) {
-        this.predecessor = predecessor;
-
-        if (predecessor != null)
-            Logging.debugLog(String.format("Updated predecessor to %s:%d",
-                                           predecessor.getInetAddress().getHostAddress(),
-                                           predecessor.getPort()),
-                             false);
-    }
-
-    public Socket getNextPredecessor() {
-        return nextPredecessor;
-    }
-
-    public void setNextPredecessor(Socket nextPredecessor) {
-        this.nextPredecessor = nextPredecessor;
-
-        if (nextPredecessor != null)
-            Logging.debugLog(String.format("Updated next predecessor to %s:%d",
-                                           nextPredecessor.getInetAddress().getHostAddress(),
-                                           nextPredecessor.getPort()),
-                             false);
     }
 
     public Socket getSuccessor() {
