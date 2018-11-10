@@ -19,7 +19,7 @@ public class Main {
         - Arg 1: Command (must be PUT)
         - Arg 2: IP-address of existing peer in network
         - Arg 3: Port of existing peer in network
-        - Arg 4: Port for this process to bind to locally
+        - Arg 4: Port for this process to bind to locally // TODO: Find out if this is necessary
         - Arg 5: Key (integer)
         - Arg 6: Value (string)
 
@@ -95,9 +95,7 @@ public class Main {
 
         System.out.println("Trying to start a new network ...");
 
-        System.out.println(ownIp + ownPort);
-
-        //new Peer(ownAddress);
+        new Peer(ownIp, ownPort);
     }
 
     private static void joinExistingNetwork(String[] programArguments) {
@@ -107,13 +105,13 @@ public class Main {
         int peerPort = parsePort(programArguments[2]);
 
         try {
-            //Peer peer = new Peer(ownAddress);
+            Peer peer = new Peer(ownIp, ownPort);
 
             System.out.println(String.format("Trying to join network by peer %s:%d ...",
                     peerAddress,
                     peerPort));
 
-            //peer.connectToPeer(addressOfExistingPeer);
+            peer.connectToOtherPeer(peerAddress, peerPort);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format("The given address of the peer (IP: %s PORT: %s)" +
                             "is not valid. Please read the documentation.",
