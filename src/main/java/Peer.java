@@ -92,6 +92,25 @@ class Peer {
                     }
                 } else if (input instanceof NextSuccessorMessage) {
                     this.peer.handleNextSuccessorMessage((NextSuccessorMessage) input);
+                } else if (input instanceof PutMessage) {
+                    PutMessage putMessage = (PutMessage) input;
+
+                    // TODO: Store data in network
+                    System.out.println(String.format("Received PUT-message (key: %d, value: %s, ID: %s)",
+                                                     putMessage.getKey(),
+                                                     putMessage.getValue(),
+                                                     putMessage.getKeyHashId()));
+                } else if (input instanceof GetMessage) {
+                    GetMessage getMessage = (GetMessage) input;
+
+                    // TODO: Get data from network and remove this dummy
+                    try {
+                        this.peer.sendMessageToPeer(new PeerAddress(getMessage.getIpOfRequester(),
+                                                                    getMessage.getPortOfRequester()),
+                                                    new PutMessage(1, "Test"));
+                    } catch (FaultyPeerException e) {
+                        Logging.debugLog("Can't send message to PUT-client. Full error details: " + e.getMessage(), true);
+                    }
                 }
             } catch (EOFException e) {
                 // Do nothing...  Object is deserialized // FIXME: Find out if this is necessary
