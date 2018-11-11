@@ -10,7 +10,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 
-class Peer implements Serializable {
+class Peer {
     private final PeerAddress address;
 
     private PeerAddress successor;
@@ -94,7 +94,7 @@ class Peer implements Serializable {
                     this.peer.handleNextSuccessorMessage((NextSuccessorMessage) input);
                 }
             } catch (EOFException e) {
-                // Do nothing...  Object is deserialized
+                // Do nothing...  Object is deserialized // FIXME: Find out if this is necessary
             } catch (SocketException e) {
                 try {
                     this.clientSocket.close();
@@ -122,12 +122,10 @@ class Peer implements Serializable {
     }
 
     void sendMessageToPeer(PeerAddress destinationPeer, Message message) throws FaultyPeerException {
-        Socket socket = PlacementHandler.establishSocketConnection(destinationPeer);
-
-        // TODO: Try-with-resources
         try {
-            assert socket != null;
+            Socket socket = PlacementHandler.establishSocketConnection(destinationPeer);
             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+
             outputStream.writeObject(message);
         } catch (IOException e) {
             e.printStackTrace();
@@ -136,12 +134,8 @@ class Peer implements Serializable {
 
     // Expects a response from peer
     Object sendRequestToPeer(PeerAddress destinationPeer, RequestMessage message) throws FaultyPeerException {
-        Socket socket = PlacementHandler.establishSocketConnection(destinationPeer);
-
-        // TODO: Try-with-resources
         try {
-            assert socket != null;
-
+            Socket socket = PlacementHandler.establishSocketConnection(destinationPeer);
             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
 
@@ -163,7 +157,9 @@ class Peer implements Serializable {
             // FIXME: Waits till organize message arrives. Make it smarter...
             while (this.successor == null);
 
-            BigInteger hashIdSuccessor = (BigInteger) sendRequestToPeer(this.successor, new RequestMessage(this.address, RequestMessage.Type.HASH_ID));
+            BigInteger hashIdSuccessor = (BigInteger) sendRequestToPeer(this.successor,
+                                                                        new RequestMessage(this.address,
+                                                                                           RequestMessage.Type.HASH_ID));
 
             if (hashIdSuccessor.equals(message.getSenderHashId())) {
                 this.setNextSuccessor(message.getNewPeerAddress());
@@ -188,10 +184,10 @@ class Peer implements Serializable {
         this.successor = newSuccessor;
 
         Logging.debugLog(String.format("Updated successor to %s:%d (ID: %s)",
-                newSuccessor.getIp(),
-                newSuccessor.getPort(),
-                newSuccessor.getHashId()),
-                false);
+                                       newSuccessor.getIp(),
+                                       newSuccessor.getPort(),
+                                       newSuccessor.getHashId()),
+                         false);
     }
 
     PeerAddress getNextSuccessor() {
@@ -202,9 +198,9 @@ class Peer implements Serializable {
         this.nextSuccessor = newNextSuccessor;
 
         Logging.debugLog(String.format("Updated next successor to %s:%d (ID: %s)",
-                newNextSuccessor.getIp(),
-                newNextSuccessor.getPort(),
-                newNextSuccessor.getHashId()),
-                false);
+                                       newNextSuccessor.getIp(),
+                                       newNextSuccessor.getPort(),
+                                       newNextSuccessor.getHashId()),
+                         false);
     }
 }
