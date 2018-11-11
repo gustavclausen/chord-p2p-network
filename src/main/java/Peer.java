@@ -1,9 +1,6 @@
 package main.java;
 
-import main.java.messages.JoinMessage;
-import main.java.messages.Message;
-import main.java.messages.RequestMessage;
-import main.java.messages.RestructureMessage;
+import main.java.messages.*;
 import main.java.utilities.Logging;
 import main.java.utilities.SHA1Hasher;
 
@@ -11,6 +8,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 
 class Peer implements Serializable {
@@ -94,11 +92,18 @@ class Peer implements Serializable {
                         default:
                             break;
                     }
+                } else if (input instanceof RoundTripMessage) {
+                    this.peer.handleRoundTripMessage((RoundTripMessage) input);
                 }
             } catch (EOFException e) {
                 // Do nothing...  Object is deserialized
+            } catch (SocketException e) {
+                try {
+                    this.clientSocket.close();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
             } catch (IOException | ClassNotFoundException e) {
-                // TODO: Check if disconnect
                 e.printStackTrace();
             }
         }
@@ -118,37 +123,48 @@ class Peer implements Serializable {
         }
     }
 
-    void sendMessageToPeer(PeerAddress peerAddress, Message message) {
-        try {
-            Socket socket = new Socket(peerAddress.getIp(), peerAddress.getPort());
-            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
-
-            outputStream.writeObject(message);
-        } catch (IOException e) {
-            // TODO: Check if disconnected or non-existing here
-            e.printStackTrace();
-        }
+    void sendMessageToPeer(Socket socketPeer, Message message) throws IOException {
+        ObjectOutputStream outputStream = new ObjectOutputStream(socketPeer.getOutputStream());
+        outputStream.writeObject(message);
     }
 
     // Expect a response from peer
-    Object sendRequestToPeer(PeerAddress peerAddress, RequestMessage message) {
+    Object sendRequestToPeer(Socket socketPeer, RequestMessage message) throws IOException {
+        ObjectOutputStream outputStream = new ObjectOutputStream(socketPeer.getOutputStream());
+        ObjectInputStream inputStream = new ObjectInputStream(socketPeer.getInputStream());
+
+        outputStream.writeObject(message);
+
         try {
-            Socket socket = new Socket(peerAddress.getIp(), peerAddress.getPort());
-            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
-
-            outputStream.writeObject(message);
-
             Object response;
             while ((response = inputStream.readObject()) != null) {
                 return response;
             }
-        } catch (IOException | ClassNotFoundException e) {
-            // TODO: Check if disconnected or non-existing here
+        } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
 
         return null;
+    }
+
+    private void handleRoundTripMessage(RoundTripMessage input) {
+        try {
+            if (this.successor == null) {
+                System.out.println("WTF?");
+            }
+            BigInteger hashIdSuccessor = (BigInteger) sendRequestToPeer(this.successor, new RequestMessage(this.address, RequestMessage.Type.HASHID));
+
+            if (hashIdSuccessor.equals(input.getSenderHashId())) {
+                this.setNextSuccessor(input.getNewPeerAddress());
+            } else {
+                sendMessageToPeer(successor, input);
+            }
+        } catch (SocketException e) {
+            Logging.debugLog("Could not send message to successor. Reason: " + e.getMessage(), true);
+            // TODO: Reestablish network
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     BigInteger getHashId() {
@@ -163,16 +179,28 @@ class Peer implements Serializable {
         return this.successor;
     }
 
-    void setSuccessor(PeerAddress addressOfNewSuccessor) {
+    void setSuccessor(Socket socketNewSuccessor, PeerAddress peerAddress) {
+        this.successor = socketNewSuccessor;
+
+        Logging.debugLog(String.format("Updated successor to %s:%d",
+                peerAddress.getIp(),
+                peerAddress.getPort()),
+                false);
+    }
+
+    // Method overloading
+    void setSuccessor(PeerAddress peerAddress) {
         try {
-            this.successor = new Socket(addressOfNewSuccessor.getIp(), addressOfNewSuccessor.getPort());
+            this.successor = new Socket(peerAddress.getIp(), peerAddress.getPort());
 
             Logging.debugLog(String.format("Updated successor to %s:%d",
-                    addressOfNewSuccessor.getIp(),
-                    addressOfNewSuccessor.getPort()),
+                    peerAddress.getIp(),
+                    peerAddress.getPort()),
                     false);
+        } catch (SocketException e) {
+            Logging.debugLog("Couldn't connect to peer. Reason: " + e.getMessage(), true);
+            // TODO: Reestablish network
         } catch (IOException e) {
-            // TODO: Check if disconnected or non-existing here
             e.printStackTrace();
         }
     }
@@ -181,16 +209,28 @@ class Peer implements Serializable {
         return this.nextSuccessor;
     }
 
-    void setNextSuccessor(PeerAddress addressOfNewNextSuccessor) {
+    void setNextSuccessor(Socket socketNewNextSuccessor, PeerAddress peerAddress) {
+        this.successor = socketNewNextSuccessor;
+
+        Logging.debugLog(String.format("Updated next successor to %s:%d",
+                peerAddress.getIp(),
+                peerAddress.getPort()),
+                false);
+    }
+
+    // Method overloading
+    void setNextSuccessor(PeerAddress peerAddress) {
         try {
-            this.nextSuccessor = new Socket(addressOfNewNextSuccessor.getIp(), addressOfNewNextSuccessor.getPort());
+            this.nextSuccessor = new Socket(peerAddress.getIp(), peerAddress.getPort());
 
             Logging.debugLog(String.format("Updated next successor to %s:%d",
-                    addressOfNewNextSuccessor.getIp(),
-                    addressOfNewNextSuccessor.getPort()),
+                    peerAddress.getIp(),
+                    peerAddress.getPort()),
                     false);
+        } catch (SocketException e) {
+            Logging.debugLog("Couldn't connect to peer. Reason: " + e.getMessage(), true);
+            // TODO: Reestablish network
         } catch (IOException e) {
-            // TODO: Check if disconnected or non-existing here
             e.printStackTrace();
         }
     }
