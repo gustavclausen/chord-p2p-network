@@ -111,7 +111,7 @@ public class Main {
                     peerAddress,
                     peerPort));
 
-            peer.connectToOtherPeer(new PeerAddress(peerAddress, peerPort));
+            peer.joinNetworkByExistingPeer(new PeerAddress(peerAddress, peerPort));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format("The given address of the peer (IP: %s PORT: %s)" +
                             "is not valid. Please read the documentation.",
