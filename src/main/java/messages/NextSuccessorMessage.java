@@ -5,12 +5,11 @@ import main.java.utilities.SHA1Hasher;
 
 import java.math.BigInteger;
 
-public class RoundTripMessage extends Message {
+public class NextSuccessorMessage extends Message {
     private final BigInteger senderHashId;
     private final PeerAddress newPeerAddress;
 
-    public RoundTripMessage(PeerAddress senderPeerAddress, PeerAddress newPeerAddress) {
-        super(senderPeerAddress);
+    public NextSuccessorMessage(PeerAddress senderPeerAddress, PeerAddress newPeerAddress) {
         this.senderHashId = SHA1Hasher.hashAddress(senderPeerAddress);
         this.newPeerAddress = newPeerAddress;
     }

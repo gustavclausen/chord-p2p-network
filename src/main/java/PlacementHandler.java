@@ -1,9 +1,10 @@
 package main.java;
 
+import main.java.exceptions.FaultyPeerException;
 import main.java.messages.JoinMessage;
 import main.java.messages.RequestMessage;
-import main.java.messages.RestructureMessage;
-import main.java.messages.RoundTripMessage;
+import main.java.messages.OrganizeMessage;
+import main.java.messages.NextSuccessorMessage;
 import main.java.utilities.Logging;
 
 import java.io.IOException;
@@ -15,122 +16,107 @@ class PlacementHandler {
     static void placeNewPeer(Peer currentPeer, JoinMessage joinMessage) {
         PeerAddress newPeerAddress = joinMessage.getNewPeerAddress();
         BigInteger newPeerHashId = joinMessage.getNewPeerHashId();
-        PeerAddress currentPeerAddress = currentPeer.getPeerAddress();
-        BigInteger currentPeerHashId = currentPeer.getHashId();
 
-        Socket newPeerSocket = null;
-        try {
-            newPeerSocket = new Socket(newPeerAddress.getIp(), newPeerAddress.getPort());
-        } catch (SocketException e) {
-            // Could be disconnected by bouncing around
-            Logging.debugLog("Can't connect to new peer. Reason: " + e.getMessage(), true);
-            // TODO: Print message saying new peer couldn't join the network
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        PeerAddress currentPeerAddress = currentPeer.getPeerAddress();
+        BigInteger currentPeerHashId = currentPeerAddress.getHashId();
 
         // It's assumed that currentPeer is the first peer in the network
         if (currentPeer.getSuccessor() == null) {
             try {
                 // Order is important here!
-                currentPeer.sendMessageToPeer(newPeerSocket, new RestructureMessage(currentPeerAddress, RestructureMessage.Type.NEW_SUCCESSOR));
-                currentPeer.setSuccessor(newPeerSocket, newPeerAddress);
-            } catch (SocketException e) {
-                Logging.debugLog("Can't connect to new peer. Reason: " + e.getMessage(), true);
-                // TODO: Print message saying new peer couldn't join the network
-            } catch (IOException e) {
-                e.printStackTrace();
+                currentPeer.sendMessageToPeer(newPeerAddress, new OrganizeMessage(currentPeerAddress, OrganizeMessage.Type.NEW_SUCCESSOR));
+                currentPeer.setSuccessor(newPeerAddress);
+            } catch (FaultyPeerException e) {
+                Logging.debugLog("Could not connect to new peer while placing it in network.\n" +
+                        "Full error details: " + e.getMessage(), true);
+                // Quits replacement...
             }
         } else if (currentPeer.getSuccessor() != null) {
-            Socket successor = currentPeer.getSuccessor();
+            BigInteger successorHashId;
 
-            BigInteger successorHashId = null;
             try {
-                // FIXME: Why is it necessary to create new socket???
-                successorHashId = (BigInteger) currentPeer.sendRequestToPeer(new Socket(successor.getInetAddress().getHostAddress(), successor.getPort()),
-                        new RequestMessage(currentPeerAddress, RequestMessage.Type.HASHID));
-            } catch (SocketException e) {
-                Logging.debugLog("Could not send message to peer. Reason: " + e.getMessage(), true);
-                // TODO: Reestablish network
-            } catch (IOException e) {
-                e.printStackTrace();
+                successorHashId = (BigInteger) currentPeer.sendRequestToPeer(currentPeer.getSuccessor(),
+                        new RequestMessage(currentPeerAddress, RequestMessage.Type.HASH_ID));
+            } catch (FaultyPeerException e) {
+                Logging.debugLog("Could not connect to successor. Full error details: " + e.getMessage(), true);
+                return; // TODO: Reorganize network
             }
 
+            // Blocking
             assert successorHashId != null;
+
             if ((successorHashId.compareTo(newPeerHashId) > 0 && currentPeerHashId.compareTo(newPeerHashId) < 0) ||
                     (successorHashId.compareTo(newPeerHashId) < 0 && currentPeerHashId.compareTo(newPeerHashId) < 0) ||
                     newPeerHashId.compareTo(successorHashId) < 0 && newPeerHashId.compareTo(currentPeerHashId) < 0) {
-                // Make it look like successor send the message
+
                 try {
-                    currentPeer.sendMessageToPeer(newPeerSocket, new RestructureMessage(new PeerAddress(successor.getInetAddress().getHostAddress(),
-                            successor.getPort()), RestructureMessage.Type.NEW_SUCCESSOR));
-                } catch (SocketException e) {
-                    Logging.debugLog("Can't send message to new peer. Reason: " + e.getMessage(), true);
-                    // TODO: Print message saying new peer couldn't join the network
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    currentPeer.sendMessageToPeer(newPeerAddress, new OrganizeMessage(currentPeer.getSuccessor(), OrganizeMessage.Type.NEW_SUCCESSOR));
+                } catch (FaultyPeerException e) {
+                    Logging.debugLog("Could not connect to new peer while placing it in network.\n" +
+                            "Full error details: " + e.getMessage(), true);
+                    return;
                 }
 
                 // Third peer joining the network
                 if (currentPeer.getNextSuccessor() == null) {
-                    // Make it look like newpeer send the message
                     try {
-                        currentPeer.sendMessageToPeer(new Socket(successor.getInetAddress().getHostAddress(), successor.getPort()), new RestructureMessage(newPeerAddress, RestructureMessage.Type.NEW_NEXT_SUCCESSOR));
-                    } catch (SocketException e) {
+                        currentPeer.sendMessageToPeer(currentPeer.getSuccessor(), new OrganizeMessage(newPeerAddress, OrganizeMessage.Type.NEW_NEXT_SUCCESSOR));
+                    } catch (FaultyPeerException e) {
                         Logging.debugLog("Can't send message to successor. Reason: " + e.getMessage(), true);
-                        // TODO: Print message saying new peer couldn't join the network
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        return; // TODO: Reorganize network
                     }
 
                     try {
-                        currentPeer.sendMessageToPeer(new Socket(newPeerSocket.getInetAddress().getHostAddress(), newPeerSocket.getPort()), new RestructureMessage(currentPeerAddress, RestructureMessage.Type.NEW_NEXT_SUCCESSOR));
-                    } catch (SocketException e) {
+                        currentPeer.sendMessageToPeer(newPeerAddress, new OrganizeMessage(currentPeerAddress, OrganizeMessage.Type.NEW_NEXT_SUCCESSOR));
+                    } catch (FaultyPeerException e) {
                         Logging.debugLog("Can't connect to new peer. Reason: " + e.getMessage(), true);
-                        // TODO: Print message saying new peer couldn't join the network
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        return; // TODO: Fix the last action
                     }
 
-                    Socket previousSuccessor = successor;
-                    currentPeer.setSuccessor(newPeerSocket, newPeerAddress);
-                    currentPeer.setNextSuccessor(new PeerAddress(previousSuccessor.getInetAddress().getHostAddress(), previousSuccessor.getPort()));
+                    PeerAddress previousSuccessor = currentPeer.getSuccessor();
+                    currentPeer.setSuccessor(newPeerAddress);
+                    currentPeer.setNextSuccessor(previousSuccessor);
                 }
                 // Four and above joining
                 else if (currentPeer.getNextSuccessor() != null) {
-                    // Make it look like next successor sent the message
                     try {
-                        currentPeer.sendMessageToPeer(new Socket(newPeerAddress.getIp(), newPeerAddress.getPort()), new RestructureMessage(new PeerAddress(currentPeer.getNextSuccessor().getInetAddress().getHostAddress(), currentPeer.getSuccessor().getPort()), RestructureMessage.Type.NEW_NEXT_SUCCESSOR));
-                    } catch (SocketException e) {
+                        currentPeer.sendMessageToPeer(newPeerAddress, new OrganizeMessage(currentPeer.getNextSuccessor(), OrganizeMessage.Type.NEW_NEXT_SUCCESSOR));
+                    } catch (FaultyPeerException e) {
                         Logging.debugLog("Can't connect to new peer. Reason: " + e.getMessage(), true);
-                        // TODO: Print message saying new peer couldn't join the network
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        // TODO: Fix the previous actions
                     }
 
-                    currentPeer.setNextSuccessor(currentPeer.getSuccessor(), new PeerAddress(currentPeer.getSuccessor().getInetAddress().getHostAddress(), currentPeer.getSuccessor().getPort()));
-                    currentPeer.setSuccessor(newPeerSocket, newPeerAddress);
+                    currentPeer.setNextSuccessor(currentPeer.getSuccessor());
+                    currentPeer.setSuccessor(newPeerAddress);
 
                     try {
-                        currentPeer.sendMessageToPeer(new Socket(currentPeer.getSuccessor().getInetAddress().getHostAddress(), currentPeer.getSuccessor().getPort()),
-                                new RoundTripMessage(currentPeer.getPeerAddress(), newPeerAddress));
-                    } catch (SocketException e) {
+                        currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
+                                new NextSuccessorMessage(currentPeer.getPeerAddress(), newPeerAddress));
+                    } catch (FaultyPeerException e) {
                         Logging.debugLog("Can't send message to successor. Reason: " + e.getMessage(), true);
                         // TODO: Reestablish network
-                    } catch (IOException e) {
-                        e.printStackTrace();
                     }
                 }
             } else {
                 try {
-                    currentPeer.sendMessageToPeer(successor, new JoinMessage(currentPeerAddress, newPeerAddress));
-                } catch (SocketException e) {
-                    Logging.debugLog("Can't connect to peer. Reason: " + e.getMessage(), true);
+                    currentPeer.sendMessageToPeer(currentPeer.getSuccessor(), joinMessage);
+                } catch (FaultyPeerException e) {
+                    Logging.debugLog("Can't send message to successor. Reason: " + e.getMessage(), true);
                     // TODO: Reestablish network
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
             }
         }
+    }
+
+    public static Socket establishSocketConnection(PeerAddress address) throws FaultyPeerException {
+        try {
+            return new Socket(address.getIp(), address.getPort());
+        } catch (SocketException e) {
+            throw new FaultyPeerException(e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 }

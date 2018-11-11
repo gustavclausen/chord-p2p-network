@@ -3,10 +3,11 @@ package main.java.messages;
 import main.java.PeerAddress;
 
 public class RequestMessage extends Message {
+    private final PeerAddress senderPeerAddress;
     private final Type type;
 
     public RequestMessage(PeerAddress senderPeerAddress, Type type) {
-        super(senderPeerAddress);
+        this.senderPeerAddress = senderPeerAddress;
         this.type = type;
     }
 
@@ -14,7 +15,11 @@ public class RequestMessage extends Message {
         return type;
     }
 
+    public PeerAddress getSenderPeerAddress() {
+        return senderPeerAddress;
+    }
+
     public enum Type {
-        HASHID
+        HASH_ID
     }
 }

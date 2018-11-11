@@ -1,14 +1,19 @@
 package main.java;
 
+import main.java.utilities.SHA1Hasher;
+
 import java.io.Serializable;
+import java.math.BigInteger;
 
 public class PeerAddress implements Serializable {
     private final String ip;
     private final int port;
+    private final BigInteger hashId;
 
     public PeerAddress(String ip, int port) {
         this.ip = ip;
         this.port = port;
+        this.hashId = SHA1Hasher.hashAddress(this);
     }
 
     public String getIp() {
@@ -17,5 +22,9 @@ public class PeerAddress implements Serializable {
 
     public int getPort() {
         return port;
+    }
+
+    public BigInteger getHashId() {
+        return hashId;
     }
 }
