@@ -10,6 +10,10 @@ import java.math.BigInteger;
 
 // TODO: Check for successor is null!
 // TODO: A node can't rejoin once disconnected
+
+/**
+ * Evaluates the placement of a new peer joining the network relative to this peer
+ */
 class PlacementHandler {
     static void placementOfNewPeer(Peer currentPeer, JoinMessage joinMessage) {
         PeerAddress newPeerAddress = joinMessage.getNewPeerAddress();
@@ -137,7 +141,6 @@ class PlacementHandler {
             }
             // Pass on JoinMessage to successor
             else {
-                System.out.println("BOUNCE");
                 try {
                     currentPeer.sendMessageToPeer(currentPeer.getSuccessor(), joinMessage);
                 } catch (FaultyPeerException e) {
@@ -157,18 +160,35 @@ class PlacementHandler {
         }
     }
 
+    /**
+     * Determines if the new peer joining the network should be placed between the current peer
+     * and its successor based on the id-value of all three peers
+     */
     private static boolean shouldBePlacedBetweenCurrentPeerAndSuccessor(BigInteger currentPeerHashId,
                                                                         BigInteger newPeerHashId,
                                                                         BigInteger successorHashId) {
-        // Inbetween
+        /*
+         * The id of the current peer is lower than the id of the new peer, and the id of the current peer's
+         * successor is higher than the new peer.
+         */
         if (newPeerHashId.compareTo(currentPeerHashId) > 0 && successorHashId.compareTo(newPeerHashId) > 0) {
             return true;
         }
-        // Over the clock with current on left side and successor on right
-        else if (newPeerHashId.compareTo(currentPeerHashId) > 0 && newPeerHashId.compareTo(successorHashId) > 0) {
+        /*
+         * Same condition as before, only this time taken into account that the id of the current peer's successor
+         * can be lower than the new peer's id. That is, the current peer had to be the peer with the highest id in the
+         * network until the new peer with a higher id joins. The id of the peer with the highest id in the network has
+         * to have a successor which id is the lowest id of the network.
+         */
+        else if (newPeerHashId.compareTo(currentPeerHashId) > 0 && successorHashId.compareTo(newPeerHashId) < 0) {
             return true;
         }
-        else if (currentPeerHashId.compareTo(newPeerHashId) > 0 && successorHashId.compareTo(newPeerHashId) > 0 &&
+        /*
+         * Same condition as the first, only this time taken into account that the id of the new peer can be the lowest
+         * in the network. Thus, if the current peer has the lowest id in the network and receives the 'JoinMessage' as
+         * the first in the network, then the last condition will evaluate to false.
+         */
+        else if (newPeerHashId.compareTo(currentPeerHashId) < 0 && successorHashId.compareTo(newPeerHashId) > 0 &&
                  currentPeerHashId.compareTo(successorHashId) > 0) {
             return true;
         }

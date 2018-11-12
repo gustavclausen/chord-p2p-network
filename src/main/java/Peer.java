@@ -12,17 +12,24 @@ import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Represents a peer in the network
+ */
 class Peer {
     private final PeerAddress ownAddress;
 
+    /*
+     * Address of the peer laying next to this peer clockwise "around the ring".
+     * Defined as a successor to this peer.
+     */
     private PeerAddress successor;
-    private PeerAddress nextSuccessor;
+    private PeerAddress nextSuccessor; // Address of the successor's successor
 
-    private Map<Integer, String> data;
+    private final Map<Integer, String> storedData;
 
     Peer(PeerAddress ownAddress) {
         this.ownAddress = ownAddress;
-        this.data = new HashMap<>();
+        this.storedData = new HashMap<>();
 
         System.out.println(String.format("Peer started on %s:%d (ID: %s)",
                                          this.ownAddress.getIp(),
@@ -72,10 +79,14 @@ class Peer {
             try {
                 ObjectInputStream inputStream = new ObjectInputStream(this.clientSocket.getInputStream());
 
-                Object input = inputStream.readObject(); // Ingoing message
+                Object input = inputStream.readObject(); // Incoming message
 
                 // Check which type of message it is
                 if (input instanceof JoinMessage) {
+                    /*
+                     * Evaluate and acts upon the placement of a new peer joining the network relative to
+                     * this peer receiving the message
+                     */
                     PlacementHandler.placementOfNewPeer(this.peer, (JoinMessage) input);
                 }
                 else if (input instanceof OrganizeMessage) {
@@ -98,7 +109,7 @@ class Peer {
                 else if (input instanceof PutMessage) {
                     PutMessage putMessage = (PutMessage) input;
 
-                    // TODO: Store data in network
+                    // TODO: Store storedData in network
                     System.out.println(String.format("Received PUT-message (key: %d, value: %s, ID: %s)",
                                                      putMessage.getKey(),
                                                      putMessage.getValue(),
@@ -117,9 +128,9 @@ class Peer {
                     }
                 }
             } catch (EOFException e) {
-                // Simply do nothing...  Ingoing message is already deserialized
+                // Simply do nothing...  Incoming message is already deserialized
             } catch (SocketException e) {
-                // Close socket to client if an connection-error occurs
+                // Close socket to client if an connection error occurs
                 try {
                     this.clientSocket.close();
                 } catch (IOException e1) {
@@ -133,14 +144,14 @@ class Peer {
 
     /**
      * Peer tries to join network by an existing peer in that network by sending a 'JoinMessage'-message to that
-     * peer
+     * existing peer
      */
     void joinNetworkByExistingPeer(PeerAddress addressOfExistingPeer) {
         try (
-             Socket socketToExistingPeer = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
-             ObjectOutputStream outputStream = new ObjectOutputStream(socketToExistingPeer.getOutputStream())
+             Socket existingPeerSocket = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
+             ObjectOutputStream outputStream = new ObjectOutputStream(existingPeerSocket.getOutputStream())
         ) {
-            if (socketToExistingPeer.isConnected())
+            if (existingPeerSocket.isConnected())
                 Logging.debugLog("Connected to peer.", false);
 
             outputStream.writeObject(new JoinMessage(this.ownAddress));
@@ -152,11 +163,13 @@ class Peer {
     }
 
     /**
-     * Peer tries to send a message to another peer in the network
+     * Peer tries to send a message to another peer in the network.
+     * Throws 'FaultyPeerException' if a connection to the other peer - which address is taken as argument -
+     * could not be established.
      */
     void sendMessageToPeer(PeerAddress destinationPeer, Message message) throws FaultyPeerException {
         try {
-            Socket socket = ConnectionHandler.establishSocketConnection(destinationPeer);
+            Socket socket = ConnectionHandler.establishConnectionToPeer(destinationPeer);
 
             if (socket != null) {
                 ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
@@ -174,9 +187,14 @@ class Peer {
         }
     }
 
+    /**
+     * Peer receiving 'NextSuccessorMessage'
+     */
     private void handleNextSuccessorMessage(NextSuccessorMessage message) {
         try {
-            while (this.successor == null); // FIXME: Waits till organize message arrives. Make it smarter... This is for the new peer receiving the message first
+            // FIXME: Waits till organize message arrives. Make it smarter...
+            // This is for the new peer receiving the message first
+            while (this.successor == null);
 
             BigInteger hashIdSuccessor = this.successor.getHashId();
 

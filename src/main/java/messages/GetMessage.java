@@ -1,6 +1,5 @@
 package main.java.messages;
 
-import main.java.PeerAddress;
 import main.java.utilities.SHA1Hasher;
 
 import java.math.BigInteger;

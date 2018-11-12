@@ -8,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class SHA1Hasher {
     /**
-     * Returns the hash-value of the IP and port (combined) which are defined in the 'PeerAddress'-object taken as
+     * Returns the hash-value of IP and port (combined) which are defined in the 'PeerAddress'-object taken as
      * argument
      */
     public static BigInteger hashAddress(PeerAddress address) {
@@ -38,7 +38,7 @@ public class SHA1Hasher {
      * The function produces a 160-bit hash-value, and afterwards converts the value from a hexadecimal to a decimal
      * value. This value is stored in a 'BigInteger'-object, which is able to "hold" and represent this value.
      * The advantage of representing this value in a 'BigInteger'-object is to make it possible to compare two values
-     * (for less or greater than) which this class supports.
+     * (a "less or greater than"-comparison) which this class supports.
      *
      * Source: http://www.sha1-online.com/sha1-java/ (accessed 2018-11-06)
      */

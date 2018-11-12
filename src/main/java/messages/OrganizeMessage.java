@@ -2,11 +2,11 @@ package main.java.messages;
 
 import main.java.PeerAddress;
 
+// TODO: Describe that this message tells the receiving peer what to do
 public class OrganizeMessage extends Message {
     private final Type type;
     private final PeerAddress peerToPointTo;
 
-    // TODO: Describe that this message tells the receiving peer what to do
     public OrganizeMessage(PeerAddress peerToPointTo, Type type) {
         this.peerToPointTo = peerToPointTo;
         this.type = type;

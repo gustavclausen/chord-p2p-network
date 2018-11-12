@@ -16,4 +16,29 @@ public class Logging {
         else
             System.out.println(messageToOutput);
     }
+
+    /**
+     * Print a predefined error message based on the type of the error to the console
+     */
+    public static void printConnectionError(ErrorType type) {
+        switch (type) {
+            case FAULTY_SUCCESSOR:
+                debugLog("Faulty successor", true);
+                break;
+            case FAULTY_NEXTSUCCESSOR:
+                debugLog("Faulty next successor", true);
+                break;
+            case FAULTY_NEWPEER:
+                debugLog("Faulty new peer", true);
+                break;
+            default:
+                break;
+        }
+    }
+
+    public enum ErrorType {
+        FAULTY_SUCCESSOR,
+        FAULTY_NEXTSUCCESSOR,
+        FAULTY_NEWPEER
+    }
 }

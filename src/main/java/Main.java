@@ -7,7 +7,6 @@ import main.java.utilities.Logging;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.math.BigInteger;
 import java.net.*;
 
 public class Main {
@@ -97,7 +96,7 @@ public class Main {
         }
     }
 
-    // New peer starts a whole new network
+    // New peer (the first one) starts a new network
     private static void createNewNetwork(String[] programArguments) {
         String ownIp = getOwnIp();
         int ownPort = parseInteger(programArguments[1]);
@@ -132,6 +131,10 @@ public class Main {
         }
     }
 
+    /**
+     * Sends a 'PutMessage' to the peer which address is taken as argument to program.
+     * Terminates the process afterwards.
+     */
     private static void put(String[] programArguments) {
         String peerAddress = programArguments[1];
         int peerPort = parseInteger(programArguments[2]);
@@ -151,6 +154,10 @@ public class Main {
         }
     }
 
+    /**
+     * Sends a 'GetMessage' to the peer which address is taken as argument to program.
+     * Afterwards listen on the port - also taken as argument to program - for any response.
+     */
     private static void get(String[] programArguments) {
         String peerAddress = programArguments[1];
         int peerPort = parseInteger(programArguments[2]);
@@ -161,19 +168,20 @@ public class Main {
         int key = parseInteger(programArguments[4]);
 
         try {
-            Socket clientSocket = new Socket(peerAddress, peerPort);
-            ObjectOutputStream clientOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
+            ServerSocket listenSocket = new ServerSocket(ownPort); // Socket to listen for response to 'GetMessage'
 
-            // FIXME: Make thread for this or make GET-client a Peer
-            clientOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
-            ServerSocket listenSocket = new ServerSocket(ownPort);
-            Socket receiverSocket = listenSocket.accept();
+            Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending request to peer
+            ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
 
-            ObjectInputStream receiveInputStream = new ObjectInputStream(receiverSocket.getInputStream());
+            requestOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
 
-            Object input = receiveInputStream.readObject();
+            // Waits for incoming connection with response
+            Socket responseSocket = listenSocket.accept();
+            ObjectInputStream responseInputStream = new ObjectInputStream(responseSocket.getInputStream());
 
-            // FIXME: Discuss: introduce NotFoundMessage?
+            Object input = responseInputStream.readObject();
+
+            // Print the content of the response
             if (input instanceof PutMessage) {
                 PutMessage message = (PutMessage) input;
 
