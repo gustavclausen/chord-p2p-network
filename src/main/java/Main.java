@@ -7,13 +7,13 @@ import main.java.utilities.Logging;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.*;
 
 public class Main {
-    /*
+    /**
      NEW run configuration
-        - Arg 1: Command (must be NEW) to create new network
+        - Arg 1: Command (must be NEW) to start new network
         - Arg 2: Port for this process to bind to locally
 
      JOIN run configuration
@@ -44,7 +44,7 @@ public class Main {
                 c = Command.valueOf(args[0]);
             } catch (IllegalArgumentException e) {
                 System.err.println(String.format("The command (%s) is not recognized. " +
-                                                 "Please read the documentation.", args[0]));
+                                                 "Please look at the given run configuration.", args[0]));
                 System.exit(-1);
             }
 
@@ -92,10 +92,12 @@ public class Main {
                 System.exit(-1);
             }
         } else {
-            throw new IllegalArgumentException("Please provide arguments.");
+            throw new IllegalArgumentException("You must provide some arguments to run this program. Please look " +
+                                               "at the given run configuration.");
         }
     }
 
+    // New peer starts a whole new network
     private static void createNewNetwork(String[] programArguments) {
         String ownIp = getOwnIp();
         int ownPort = parseInteger(programArguments[1]);
@@ -105,26 +107,28 @@ public class Main {
         new Peer(new PeerAddress(ownIp, ownPort));
     }
 
+    // New peer joins network by an existing peer in that network
     private static void joinExistingNetwork(String[] programArguments) {
         String ownIp = getOwnIp();
         int ownPort = parseInteger(programArguments[3]);
 
-        String peerAddress = programArguments[1];
-        int peerPort = parseInteger(programArguments[2]);
+        String existingPeerIp = programArguments[1];
+        int existingPeerPort = parseInteger(programArguments[2]);
 
         try {
             Peer peer = new Peer(new PeerAddress(ownIp, ownPort));
 
             System.out.println(String.format("Trying to join network by peer %s:%d ...",
-                                             peerAddress,
-                                             peerPort));
+                                             existingPeerIp,
+                                             existingPeerPort));
 
-            peer.joinNetworkByExistingPeer(new PeerAddress(peerAddress, peerPort));
+            peer.joinNetworkByExistingPeer(new PeerAddress(existingPeerIp, existingPeerPort));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format("The given address of the peer (IP: %s PORT: %s)" +
-                                                             "is not valid. Please read the documentation.",
-                                                             peerAddress,
-                                                             peerPort));
+                                                             "is not valid. Please look at the given run " +
+                                                             "configuration.",
+                                                             existingPeerIp,
+                                                             existingPeerPort));
         }
     }
 
@@ -160,7 +164,7 @@ public class Main {
             Socket clientSocket = new Socket(peerAddress, peerPort);
             ObjectOutputStream clientOutputStream = new ObjectOutputStream(clientSocket.getOutputStream());
 
-            // TODO: Make thread for this or make GET-client a Peer
+            // FIXME: Make thread for this or make GET-client a Peer
             clientOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
             ServerSocket listenSocket = new ServerSocket(ownPort);
             Socket receiverSocket = listenSocket.accept();
@@ -169,7 +173,7 @@ public class Main {
 
             Object input = receiveInputStream.readObject();
 
-            // TODO: Discuss: introduce NotFoundMessage?
+            // FIXME: Discuss: introduce NotFoundMessage?
             if (input instanceof PutMessage) {
                 PutMessage message = (PutMessage) input;
 

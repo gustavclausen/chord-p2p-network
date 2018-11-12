@@ -7,6 +7,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class SHA1Hasher {
+    /**
+     * Returns the hash-value of the IP and port (combined) which are defined in the 'PeerAddress'-object taken as
+     * argument
+     */
     public static BigInteger hashAddress(PeerAddress address) {
         String formattedAddress = address.getIp().concat(" " + Integer.toString(address.getPort()));
         BigInteger hash = hash(formattedAddress);
@@ -17,6 +21,9 @@ public class SHA1Hasher {
         return hash;
     }
 
+    /**
+     * Returns the hash-value of a single integer taken as argument
+     */
     public static BigInteger hashKey(int key) {
         BigInteger hash = hash(Integer.toString(key));
 
@@ -26,7 +33,15 @@ public class SHA1Hasher {
         return hash;
     }
 
-    // Source: http://www.sha1-online.com/sha1-java/ (accessed 2018-11-06)
+    /**
+     * The actual hash-function (SHA-1).
+     * The function produces a 160-bit hash-value, and afterwards converts the value from a hexadecimal to a decimal
+     * value. This value is stored in a 'BigInteger'-object, which is able to "hold" and represent this value.
+     * The advantage of representing this value in a 'BigInteger'-object is to make it possible to compare two values
+     * (for less or greater than) which this class supports.
+     *
+     * Source: http://www.sha1-online.com/sha1-java/ (accessed 2018-11-06)
+     */
     private static BigInteger hash(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -37,7 +52,7 @@ public class SHA1Hasher {
                 sb.append(Integer.toString((hashedByte & 0xff) + 0x100, 16).substring(1));
             }
 
-            // Convert hexadecimal to BigInteger (Precision: (2^32)^Integer.MAX_VALUE)
+            // Convert from hexadecimal to BigInteger (Precision: (2^32)^Integer.MAX_VALUE)
             return new BigInteger(sb.toString(), 16);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
