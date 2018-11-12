@@ -9,21 +9,25 @@ import main.java.utilities.Logging;
 import java.math.BigInteger;
 
 // TODO: Check for successor is null!
-// TODO: A node can't rejoin once disconnected
-
-/**
- * Evaluates the placement of a new peer joining the network relative to this peer
- */
-class PlacementHandler {
+class RoutingHandler {
+    /**
+     * Evaluates and acts upon the placement of a new peer joining the network relative the peer
+     * taken as argument (denoted as "current").
+     *
+     * IMPORTANT NOTE: A peer will not be able to rejoin the network after disconnection without
+     * destroying the order of successors for the peers it rejoins.
+     */
     static void placementOfNewPeer(Peer currentPeer, JoinMessage joinMessage) {
         PeerAddress newPeerAddress = joinMessage.getNewPeerAddress();
-        BigInteger newPeerHashId = joinMessage.getNewPeerHashId();
+        BigInteger newPeerHashId = newPeerAddress.getHashId();
 
         PeerAddress currentPeerAddress = currentPeer.getPeerAddress();
         BigInteger currentPeerHashId = currentPeerAddress.getHashId();
 
-        // Special case for second peer joining the network
-        // Assume that currentPeer is the first peer in the network
+        /*
+         * Special case for second peer joining the network.
+         * Assumes that a peer is the first in the network if it does not have a successor.
+         */
         if (currentPeer.getSuccessor() == null) {
             try {
                 // Current peer sends the new peer a message telling it to set its successor to current peer
@@ -31,17 +35,17 @@ class PlacementHandler {
                                               new OrganizeMessage(currentPeerAddress,
                                                                   OrganizeMessage.Type.SET_NEW_SUCCESSOR));
 
-                currentPeer.setSuccessor(newPeerAddress); // Current peer sets its successor to the new peer
+                // Current peer sets its successor to the new peer
+                currentPeer.setSuccessor(newPeerAddress);
             } catch (FaultyPeerException e) {
-                Logging.debugLog("Could not send message to new peer while placing it in network. The peer will not " +
-                                 "be connected to the network. Full error details: " + e.getMessage(),
-                                 true);
+                // The new peer will not be connected to the network
+                Logging.printConnectionError(Logging.ErrorType.FAULTY_NEWPEER, e);
             }
         }
         else if (currentPeer.getSuccessor() != null) {
-            BigInteger successorHashId = currentPeer.getSuccessor().getHashId();
-
-            if (shouldBePlacedBetweenCurrentPeerAndSuccessor(currentPeerHashId, newPeerHashId, successorHashId)) {
+            if (shouldBePlacedBetweenCurrentPeerAndSuccessor(currentPeerHashId,
+                                                             newPeerHashId,
+                                                             currentPeer.getSuccessor().getHashId())) {
                 try {
                     /*
                      * Current peer sends the new peer a message telling it to set its successor to the
@@ -51,13 +55,18 @@ class PlacementHandler {
                                                   new OrganizeMessage(currentPeer.getSuccessor(),
                                                                       OrganizeMessage.Type.SET_NEW_SUCCESSOR));
                 } catch (FaultyPeerException e) {
-                    Logging.debugLog("Could not send message to new peer while placing it in network. The peer will " +
-                                     "not be connected to the network. Full error details: " + e.getMessage(),
-                                     true);
+                    // The new peer will not be connected to the network
+                    Logging.printConnectionError(Logging.ErrorType.FAULTY_NEWPEER, e);
+
+                    // Stop placement of faulty/disconnected new peer
                     return;
                 }
 
-                // Special case for third peer joining the network
+                /*
+                 * Special case for third peer joining the network.
+                 * Assumes that only two peers exists in the network if the current peer does not have
+                 * a next successor assigned. The current peer can be any one of these two peers.
+                 */
                 if (currentPeer.getNextSuccessor() == null) {
                     try {
                         // Current peer sends its successor a message telling it to set its next successor to new peer
@@ -65,13 +74,16 @@ class PlacementHandler {
                                                       new OrganizeMessage(newPeerAddress,
                                                                           OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
                     } catch (FaultyPeerException e) {
-                        Logging.debugLog("Could not send message to successor. " +
-                                         "Full error details: " + e.getMessage(), true);
+                        Logging.printConnectionError(Logging.ErrorType.FAULTY_SUCCESSOR, e);
 
-                        currentPeer.setSuccessor(null); // Remove dead connection
+                        // Current peer removes faulty peer as successor
+                        currentPeer.setSuccessor(null);
 
-                        // Now only two peers left. Current peer simply sets its successor to new peer, and sends
-                        // the new peer a message telling it to set its successor to the current peer
+                        /*
+                         * Now only two peers exists in the network.
+                         * Current peer simply sets its successor to new peer, and sends the new peer a message
+                         * telling it to set its successor to the current peer.
+                         */
                         try {
                             currentPeer.sendMessageToPeer(newPeerAddress,
                                                           new OrganizeMessage(currentPeerAddress,
@@ -79,29 +91,31 @@ class PlacementHandler {
                             currentPeer.setSuccessor(newPeerAddress);
                         } catch (FaultyPeerException e1) {
                             // Now current peer is the only peer left in the network
-                            Logging.debugLog("Could not send message to new peer. " +
-                                             "Full error details: " + e.getMessage(), true);
+                            Logging.printConnectionError(Logging.ErrorType.FAULTY_NEWPEER, e);
                         }
 
+                        // Stop further replacement
                         return;
                     }
 
                     try {
+                        // Current sends message to new peer telling it to set next successor to current peer
                         currentPeer.sendMessageToPeer(newPeerAddress,
                                                       new OrganizeMessage(currentPeerAddress,
                                                                           OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
                     } catch (FaultyPeerException e) {
-                        Logging.debugLog("Could not send message to new peer. " +
-                                         "Full error details: " + e.getMessage(), true);
+                        Logging.printConnectionError(Logging.ErrorType.FAULTY_NEWPEER, e);
 
-                        // Clean up actions
                         try {
+                            /*
+                             * Current peer sends message to successor telling it to remove its next successor
+                             * (new peer) because it is faulty.
+                             */
                             currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
                                                           new OrganizeMessage(null,
                                                                               OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
                         } catch (FaultyPeerException e1) {
-                            Logging.debugLog("Could not send message to successor. The system is now nonfunctional. " +
-                                             "Full error details: " + e.getMessage(), true);
+                            Logging.printConnectionError(Logging.ErrorType.SYSTEM_NONFUNCTIONAL, e);
                         }
 
                         return;
@@ -114,46 +128,68 @@ class PlacementHandler {
                 // Case for forth (and above) peer joining the network
                 else if (currentPeer.getNextSuccessor() != null) {
                     try {
+                        /*
+                         * Current peer sends message to new peer telling it to set its next successor to the next
+                         * successor of current peer.
+                         */
                         currentPeer.sendMessageToPeer(newPeerAddress,
                                                       new OrganizeMessage(currentPeer.getNextSuccessor(),
                                                                           OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
                     } catch (FaultyPeerException e) {
-                        Logging.debugLog("Could not send message to new peer while placing it in network. The peer will not " +
-                                         "be connected to the network. Full error details: " + e.getMessage(),
-                                         true);
+                        Logging.printConnectionError(Logging.ErrorType.FAULTY_NEWPEER, e);
+
+                        // Stop placement of faulty/disconnected new peer
+                        return;
                     }
 
                     currentPeer.setNextSuccessor(currentPeer.getSuccessor());
                     currentPeer.setSuccessor(newPeerAddress);
 
                     try {
+                        /*
+                         * Current peer sends message to successor asking for the following condition:
+                         * "if the peer receiving this message has current peer as successor, then this peer
+                         * must set its next successor to the new peer. If the peer does not live up to this
+                         * condition, then it must pass on the message to its successor".
+                         */
                         currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
                                                       new NextSuccessorMessage(currentPeer.getPeerAddress(),
                                                                                newPeerAddress));
                     } catch (FaultyPeerException e) {
-                        Logging.debugLog("Could not send message to successor." +
-                                "Full error details: " + e.getMessage(), true);
+                        Logging.printConnectionError(Logging.ErrorType.FAULTY_SUCCESSOR, e);
 
-                        // Put back the successor. Do nothing to reestablish next successor (not a requirement to this assignment)
+                        /*
+                         * Current peer sets back its old successor.
+                         * Nothing is done to find a new next successor for current peer and reestablish the network
+                         * since only one faulty peer per network is acceptable for this assignment.
+                         */
                         currentPeer.setSuccessor(currentPeer.getNextSuccessor());
                     }
                 }
             }
-            // Pass on JoinMessage to successor
+            /*
+             * Pass on the 'JoinMessage' to successor if the new peer should not be placed between the current peer and
+             * its successor.
+             */
             else {
                 try {
                     currentPeer.sendMessageToPeer(currentPeer.getSuccessor(), joinMessage);
                 } catch (FaultyPeerException e) {
-                    Logging.debugLog("Could not send message to successor. Sending message to next successor instead. " +
-                            "Full error details: " + e.getMessage(), true);
+                    Logging.printConnectionError(Logging.ErrorType.FAULTY_SUCCESSOR, e);
 
-                    // Here we would reestablish network but simply sends message to next successor instead
                     try {
+                        /*
+                         * If the message could not be sent to the successor of current peer, then it
+                         * sends it to its next successor.
+                         * Afterwards, the current peer updates its successor to next successor, and does nothing
+                         * to find a new next successor to reestablish the network since only one faulty peer per
+                         * network is acceptable for this assignment.
+                         */
                         currentPeer.sendMessageToPeer(currentPeer.getNextSuccessor(), joinMessage);
                         currentPeer.setSuccessor(currentPeer.getNextSuccessor());
+                        currentPeer.setNextSuccessor(null);
                     } catch (FaultyPeerException e1) {
-                        Logging.debugLog("Could not send message to next successor. The system is now nonfunctional. " +
-                                "Full error details: " + e.getMessage(), true);
+                        Logging.printConnectionError(Logging.ErrorType.SYSTEM_NONFUNCTIONAL, e);
                     }
                 }
             }

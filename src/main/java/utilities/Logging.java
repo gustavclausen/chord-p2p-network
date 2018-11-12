@@ -1,5 +1,7 @@
 package main.java.utilities;
 
+import main.java.exceptions.FaultyPeerException;
+
 import java.sql.Timestamp;
 
 public class Logging {
@@ -20,7 +22,7 @@ public class Logging {
     /**
      * Print a predefined error message based on the type of the error to the console
      */
-    public static void printConnectionError(ErrorType type) {
+    public static void printConnectionError(ErrorType type, FaultyPeerException e) {
         switch (type) {
             case FAULTY_SUCCESSOR:
                 debugLog("Faulty successor", true);
@@ -29,7 +31,10 @@ public class Logging {
                 debugLog("Faulty next successor", true);
                 break;
             case FAULTY_NEWPEER:
-                debugLog("Faulty new peer", true);
+                debugLog("Could not send message to new peer. Full error details: " + e.getMessage(), true);
+                break;
+            case SYSTEM_NONFUNCTIONAL:
+                debugLog("The system has detected two faulty peers, and the system is now nonfunctional.", true);
                 break;
             default:
                 break;
@@ -39,6 +44,7 @@ public class Logging {
     public enum ErrorType {
         FAULTY_SUCCESSOR,
         FAULTY_NEXTSUCCESSOR,
-        FAULTY_NEWPEER
+        FAULTY_NEWPEER,
+        SYSTEM_NONFUNCTIONAL
     }
 }

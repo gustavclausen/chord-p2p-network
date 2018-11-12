@@ -87,7 +87,7 @@ class Peer {
                      * Evaluate and acts upon the placement of a new peer joining the network relative to
                      * this peer receiving the message
                      */
-                    PlacementHandler.placementOfNewPeer(this.peer, (JoinMessage) input);
+                    RoutingHandler.placementOfNewPeer(this.peer, (JoinMessage) input);
                 }
                 else if (input instanceof OrganizeMessage) {
                     OrganizeMessage organizeMessage = (OrganizeMessage) input;
