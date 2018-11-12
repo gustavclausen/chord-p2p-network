@@ -40,3 +40,29 @@ STEPS:
         else:
             PEER sends message to SUCCESSOR_OF_PEER: Rerun this function with SUCCESSOR_OF_PEER as PEER
 ```
+
+### Reorganize network when successor of peer has disconnected
+```
+ENTRY CONDITION:
+PEER detects that SUCCESSOR_OF_PEER (DEAD_PEER) is faulty/disconnected.
+
+STEPS:
+    if (NEXTSUCCESSOR_OF_PEER == null): // Only peer left
+        PEER sets SUCCESSOR_OF_PEER = null
+        return
+    
+    PEER sets SUCCESSOR_OF_PEER = NEXTSUCCESSOR_OF_PEER
+    PEER sends message to SUCCESSOR_OF_PEER: Give me the address of your successor (called X)
+    
+    if (X == DEAD_PEER): // Only two peers left
+        return
+    
+    PEER sends message "around the ring" to Y:
+        if SUCCESSOR_OF_Y == PEER:
+            if (SUCCESSOR_OF_PEER == Y):
+                return // The same
+            else:
+                Y set NEXTSUCCESSOR_OF_Y = SUCCESSOR_OF_PEER
+        else:
+            pass on the message to SUCCESSOR_OF_Y
+```
