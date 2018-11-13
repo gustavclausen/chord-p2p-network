@@ -2,13 +2,16 @@ package main.java.messages;
 
 import main.java.PeerAddress;
 
-// TODO: Describe that this message tells the receiving peer what to do
+/**
+ * Message used to tell the receiver of this message to change its successor or next successor
+ * to another peer given in the message
+ */
 public class OrganizeMessage extends Message {
     private final Type type;
-    private final PeerAddress peerToPointTo;
+    private final PeerAddress peerToUpdateTo;
 
-    public OrganizeMessage(PeerAddress peerToPointTo, Type type) {
-        this.peerToPointTo = peerToPointTo;
+    public OrganizeMessage(PeerAddress peerToUpdateTo, Type type) {
+        this.peerToUpdateTo = peerToUpdateTo;
         this.type = type;
     }
 
@@ -16,8 +19,8 @@ public class OrganizeMessage extends Message {
         return this.type;
     }
 
-    public PeerAddress getPeerToPointTo() {
-        return this.peerToPointTo;
+    public PeerAddress getPeerToUpdateTo() {
+        return this.peerToUpdateTo;
     }
 
     public enum Type {

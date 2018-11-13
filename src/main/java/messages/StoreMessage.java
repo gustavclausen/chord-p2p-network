@@ -1,36 +1,30 @@
 package main.java.messages;
 
-import main.java.utilities.SHA1Hasher;
-
-import java.math.BigInteger;
-
-// TODO: Describe that this message tells the receiving peer what to do
+/**
+ * Message used to tell the receiving peer to store the data given in the message.
+ * This message also keeps a counter on how many times the data has to be replicated
+ * to the peer's successors.
+ */
 public class StoreMessage extends Message {
     private final int key;
-    private final BigInteger keyHashId;
     private final String value;
-    private int copyNumber;
+    private int remainingReplicasNeeded;
 
-    public StoreMessage(int key, String value, int copyNumber) {
+    public StoreMessage(int key, String value, int remainingReplicasNeeded) {
         this.key = key;
-        this.keyHashId = SHA1Hasher.hashKey(this.key);
         this.value = value;
-        this.copyNumber = copyNumber;
+        this.remainingReplicasNeeded = remainingReplicasNeeded;
     }
 
     public int getKey() {
         return this.key;
     }
 
-    public BigInteger getKeyHashId() {
-        return this.keyHashId;
-    }
-
     public String getValue() {
         return this.value;
     }
 
-    public int getCopyNumber() { return copyNumber; }
+    public int getRemainingReplicasNeeded() { return this.remainingReplicasNeeded; }
 
-    public void setCopyNumber(int n) { copyNumber = n; }
+    public void setRemainingReplicasNeeded(int n) { this.remainingReplicasNeeded = n; }
 }

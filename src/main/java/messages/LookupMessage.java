@@ -4,14 +4,17 @@ import main.java.PeerAddress;
 
 import java.math.BigInteger;
 
-public class LookUpMessage extends Message {
+/**
+ * Message is a request for data associated the given key to the peer receiving the message
+ */
+public class LookupMessage extends Message {
     private final int key;
-    private final PeerAddress addressOfClient;
+    private final PeerAddress getClientAddress;
     private final BigInteger hashIdOfPeerStartedLookup;
 
-    public LookUpMessage(int key, PeerAddress addressOfClient, BigInteger hashIdOfPeerStartedLookup) {
+    public LookupMessage(int key, PeerAddress getClientAddress, BigInteger hashIdOfPeerStartedLookup) {
         this.key = key;
-        this.addressOfClient = addressOfClient;
+        this.getClientAddress = getClientAddress;
         this.hashIdOfPeerStartedLookup = hashIdOfPeerStartedLookup;
     }
 
@@ -19,8 +22,8 @@ public class LookUpMessage extends Message {
         return key;
     }
 
-    public PeerAddress getAddressOfClient() {
-        return addressOfClient;
+    public PeerAddress getGetClientAddress() {
+        return getClientAddress;
     }
 
     public BigInteger getHashIdOfPeerStartedLookup() {

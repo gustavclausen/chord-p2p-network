@@ -65,8 +65,7 @@ public class Main {
                             throw new IllegalArgumentException("You must provide exactly five arguments " +
                                                                "(PUT <IP ADDRESS OF EXISTING PEER IN NETWORK> " +
                                                                "<PORT OF EXISTING PEER IN NETWORK> " +
-                                                               "<OWN PORT TO BIND TO> <KEY (INTEGER)>" +
-                                                               "<VALUE (STRING)> to use this command.");
+                                                               "<KEY (INTEGER)> <VALUE (STRING)> to use this command.");
 
                         PutClient.put(args);
                         break;

@@ -28,13 +28,13 @@ public class GetClient {
         int key = Common.parseInteger(programArguments[4]);
 
         try {
-            ServerSocket listenSocket = new ServerSocket(ownPort); // Socket to listen for response to 'GetMessage'
-
             Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending 'GetMessage' to peer
             ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
 
+            // Send 'GetMessage' to Peer
             requestOutputStream.writeObject(new GetMessage(key, new PeerAddress(ownIp, ownPort)));
 
+            ServerSocket listenSocket = new ServerSocket(ownPort); // Socket to listen for response to 'GetMessage'
             // Waits for incoming connection with response
             Socket responseSocket = listenSocket.accept();
             ObjectInputStream responseInputStream = new ObjectInputStream(responseSocket.getInputStream());

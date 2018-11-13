@@ -8,37 +8,44 @@ import main.java.utilities.Logging;
 
 import java.math.BigInteger;
 
-/*
- * Helper class for Peer receiving incoming messages
+/**
+ * Helper methods for the handling of the different kind of messages that a peer can receive
+ * on any incoming connection
  */
 public class IncomingMessageHandler {
-    private final Peer peer;
+    private final Peer peer; // Reference to peer that this handler is attached to
 
     public IncomingMessageHandler(Peer peer) {
         this.peer = peer;
     }
 
+    /*
+     * When a peer receives this message, it checks the following condition:
+     * if the original sender of the message is the peer's successor, then this peer
+     * must set its next successor to the new peer joining the network.
+     * If the peer does not live up to this condition, then it must pass on the message to its
+     * successor.
+     */
     public void handleSetNextSuccessorMessage(SetNextSuccessorMessage message) {
-        // FIXME: Waits till organize message arrives. Make it smarter...
-        // This is for the new peer receiving the message first
+        // Wait till peer updates its successor to another peer
         while (this.peer.getSuccessor() == null);
 
         BigInteger hashIdSuccessor = this.peer.getSuccessor().getHashId();
 
-        if (hashIdSuccessor.equals(message.getSenderHashId())) {
+        if (hashIdSuccessor.equals(message.getSenderPeerHashId())) {
             this.peer.setNextSuccessor(message.getNewPeerAddress());
         } else {
-            this.peer.sendToBestPeer(message); // Bounce the message to successor
+            this.peer.sendMessageToSuccessor(message); // Pass on the message to successor
         }
     }
 
     public void handleOrganizeMessage(OrganizeMessage message) {
         switch (message.getType()) {
             case SET_NEW_SUCCESSOR:
-                this.peer.setSuccessor(message.getPeerToPointTo());
+                this.peer.setSuccessor(message.getPeerToUpdateTo());
                 break;
             case SET_NEW_NEXT_SUCCESSOR:
-                this.peer.setNextSuccessor(message.getPeerToPointTo());
+                this.peer.setNextSuccessor(message.getPeerToUpdateTo());
                 break;
             default:
                 break;
@@ -46,23 +53,32 @@ public class IncomingMessageHandler {
     }
 
     public void handleStoreMessage(StoreMessage message) {
-        // Store data in map
+        // Store the data from message in map
         this.peer.getStoredData().put(message.getKey(), message.getValue());
 
-        message.setCopyNumber(message.getCopyNumber() - 1);
+        message.setRemainingReplicasNeeded(message.getRemainingReplicasNeeded() - 1);
 
-        // TODO: Describe this
-        if (message.getCopyNumber() > 0) this.peer.sendToBestPeer(message);
+        // If any more replicas of the data is needed, then the message is sent to the peer's successor
+        if (message.getRemainingReplicasNeeded() > 0) this.peer.sendMessageToSuccessor(message);
     }
 
     public void handlePutMessage(PutMessage message) {
-        // TODO: Describe this
+        /*
+         * Since all peers stores data with a hash value of a key lower than itself,
+         * the peer receiving this message checks if the hash value of the key lies
+         * between itself and its successor. If that is the case, then the peer tells
+         * its successor to store the data and distribute replicas of it with a 'StoreMessage'.
+         * If not, the peer forwards this message to its successor.
+         */
         if (Common.idIsBetweenPeerAndSuccessor(this.peer.getPeerAddress().getHashId(),
-                message.getKeyHashId(),
-                this.peer.getSuccessor().getHashId())) {
-            this.peer.sendToBestPeer(new StoreMessage(message.getKey(), message.getValue(), 2));
+                                               message.getKeyHashId(),
+                                               this.peer.getSuccessor().getHashId())) {
+
+            this.peer.sendMessageToSuccessor(new StoreMessage(message.getKey(),
+                                                              message.getValue(),
+                                                              2));
         } else {
-            this.peer.sendToBestPeer(message);
+            this.peer.sendMessageToSuccessor(message);
         }
     }
 
@@ -70,38 +86,57 @@ public class IncomingMessageHandler {
         // Check if peer has the requested data itself
         String valueToKey = this.peer.getStoredData().get(message.getKey());
 
+        // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
         if (valueToKey != null) {
             try {
-                this.peer.sendMessageToPeer(message.getAddressOfGetClient(), new PutMessage(message.getKey(), valueToKey));
+                this.peer.sendMessageToPeer(message.getGetClientAddress(), new PutMessage(message.getKey(),
+                                                                                          valueToKey));
             } catch (FaultyPeerException e) {
-                // FIXME: Give proper message
+                Logging.debugLog(String.format("Could not connect to client requesting the data (key: %d).",
+                                               message.getKey()),
+                                 true);
             }
-        } else {
-            // Start lookup
-            this.peer.sendToBestPeer(new LookUpMessage(message.getKey(),
-                                                       message.getAddressOfGetClient(),
+        }
+        /*
+         * If the peer does not have the data, the peer forwards the request to its successor by sending it
+         * a 'LookupMessage'
+         */
+        else {
+            this.peer.sendMessageToSuccessor(new LookupMessage(message.getKey(),
+                                                       message.getGetClientAddress(),
                                                        this.peer.getPeerAddress().getHashId()));
         }
     }
 
-    public void handleLookUpMessage(LookUpMessage message) {
-        // There has been a round-trip if this evaluates to false
+    public void handleLookupMessage(LookupMessage message) {
+        /*
+         * The peer receives its own 'LookupMessage' back.
+         * This means that the request has been through all peers in the network, which means that there is no
+         * associated value with the key given by the 'GetClient'.
+         */
         if (message.getHashIdOfPeerStartedLookup().compareTo(this.peer.getPeerAddress().getHashId()) == 0) {
-            Logging.debugLog(String.format("The requested value for key %d was not found.", message.getKey()), false);
+            Logging.debugLog(String.format("A value for the given key (%d) was not found.", message.getKey()), false);
             return;
         }
 
-        // Check peer has the requested data
+        // Check if peer has the requested data
         String valueToKey = this.peer.getStoredData().get(message.getKey());
+
+        // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
         if (valueToKey != null) {
             try {
-                this.peer.sendMessageToPeer(message.getAddressOfClient(), new PutMessage(message.getKey(), valueToKey));
+                this.peer.sendMessageToPeer(message.getGetClientAddress(), new PutMessage(message.getKey(), valueToKey));
             } catch (FaultyPeerException e) {
-                // FIXME: Give proper message
+                Logging.debugLog(String.format("Could not connect to client requesting the data (key: %d).",
+                                               message.getKey()),
+                                 true);
             }
-        } else {
-            // Forward message to successor
-            this.peer.sendToBestPeer(message);
+        }
+        /*
+         * If the peer does not have the data, the peer forwards the message (hence the request) to its successor
+         */
+        else {
+            this.peer.sendMessageToSuccessor(message);
         }
     }
 }

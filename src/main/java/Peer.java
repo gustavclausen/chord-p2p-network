@@ -1,7 +1,9 @@
 package main.java;
 
 import main.java.exceptions.FaultyPeerException;
+import main.java.handlers.ConnectionHandler;
 import main.java.handlers.IncomingMessageHandler;
+import main.java.handlers.PlacementHandler;
 import main.java.messages.*;
 import main.java.utilities.Logging;
 
@@ -30,11 +32,18 @@ public class Peer {
     private PeerAddress successor;
     private PeerAddress nextSuccessor; // Address of the successor's successor
 
+    /*
+     * Helper that handles all the different kind of messages that this peer can
+     * receive on its incoming connections
+     */
     private final IncomingMessageHandler incomingMessageHandler;
+
+    // Key-value pairs that this peer is responsible for storing
     private final Map<Integer, String> storedData;
 
     Peer(PeerAddress ownAddress) {
         this.ownAddress = ownAddress;
+        this.incomingMessageHandler = new IncomingMessageHandler(this);
         this.storedData = new HashMap<>();
 
         System.out.println(String.format("Peer started on %s:%d (ID: %s)",
@@ -42,7 +51,6 @@ public class Peer {
                                          this.ownAddress.getPort(),
                                          this.ownAddress.getHashId()));
 
-        this.incomingMessageHandler = new IncomingMessageHandler(this);
         new Listener(this).start(); // Starts to listen for incoming connections
     }
 
@@ -111,8 +119,8 @@ public class Peer {
                 else if (input instanceof GetMessage) {
                     this.peer.incomingMessageHandler.handleGetMessage((GetMessage) input);
                 }
-                else if (input instanceof LookUpMessage) {
-                    this.peer.incomingMessageHandler.handleLookUpMessage((LookUpMessage) input);
+                else if (input instanceof LookupMessage) {
+                    this.peer.incomingMessageHandler.handleLookupMessage((LookupMessage) input);
                 }
             } catch (EOFException e) {
                 // Simply do nothing...  Incoming message is already deserialized
@@ -135,8 +143,8 @@ public class Peer {
      */
     void joinNetworkByExistingPeer(PeerAddress addressOfExistingPeer) {
         try (
-                Socket existingPeerSocket = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
-                ObjectOutputStream outputStream = new ObjectOutputStream(existingPeerSocket.getOutputStream())
+             Socket existingPeerSocket = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
+             ObjectOutputStream outputStream = new ObjectOutputStream(existingPeerSocket.getOutputStream())
         ) {
             if (existingPeerSocket.isConnected())
                 Logging.debugLog("Connected to peer.", false);
@@ -149,16 +157,19 @@ public class Peer {
         }
     }
 
-    // TODO: Describe this
-    public void sendToBestPeer(Message message) {
+    /**
+     * Peer tries to send message to successor, and if that fails it changes its successor to
+     * its next successor, and sends the message to this peer.
+     * Nothing is done to find a new next successor for the peer and reestablish the network
+     * since only one faulty peer per network is acceptable for this assignment.
+     */
+    public void sendMessageToSuccessor(Message message) {
         try {
             this.sendMessageToPeer(this.successor, message);
         } catch (FaultyPeerException e) {
             try {
-                // Backup
-                this.sendMessageToPeer(this.nextSuccessor, message);
-                // Update successor
                 this.setSuccessor(this.nextSuccessor);
+                this.sendMessageToPeer(this.successor, message);
             } catch (FaultyPeerException e1) {
                 // Two faulty peers has now been detected, and the system is now nonfunctional
                 Logging.printConnectionError(e1, SYSTEM_NONFUNCTIONAL);
@@ -167,7 +178,7 @@ public class Peer {
     }
 
     /**
-     * Peer tries to send a message to another peer in the network.
+     * Peer tries to send a message to another given peer in the network.
      * Throws 'FaultyPeerException' if a connection to the other peer - which address is taken as argument -
      * could not be established.
      */
@@ -191,9 +202,10 @@ public class Peer {
         }
     }
 
-    /**
-     ** GETTER AND SETTERS
-     **/
+
+    /************************
+     ** GETTER AND SETTERS **
+     ************************/
     public PeerAddress getPeerAddress() {
         return this.ownAddress;
     }

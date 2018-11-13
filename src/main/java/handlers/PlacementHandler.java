@@ -1,5 +1,7 @@
-package main.java;
+package main.java.handlers;
 
+import main.java.Peer;
+import main.java.PeerAddress;
 import main.java.exceptions.FaultyPeerException;
 import main.java.messages.JoinMessage;
 import main.java.messages.OrganizeMessage;
@@ -15,12 +17,12 @@ import static main.java.utilities.Logging.ErrorType.*;
  * IMPORTANT NOTE: A peer will not be able to rejoin the network after disconnection without
  * destroying the order of successors for the peers it rejoins.
  */
-class PlacementHandler {
+public class PlacementHandler {
     /**
      * Evaluates and acts upon the placement of a new peer joining the network relative to the peer
      * taken as argument (denoted as "current").
      */
-    static void placeNewPeer(Peer currentPeer, JoinMessage joinMessage) {
+    public static void placeNewPeer(Peer currentPeer, JoinMessage joinMessage) {
         PeerAddress newPeerAddress = joinMessage.getNewPeerAddress();
         BigInteger newPeerHashId = newPeerAddress.getHashId();
 
@@ -29,7 +31,7 @@ class PlacementHandler {
 
         /*
          * Special case for second peer joining the network.
-         * Assumes that a peer is the first in the network if it does not have a successor set.
+         * Assumes that a peer is the first in the network if it does not have a reference to a successor.
          */
         if (currentPeer.getSuccessor() == null) {
             try {
@@ -46,8 +48,8 @@ class PlacementHandler {
              * and its successor based on the hash id value of all three peers
              */
             if (Common.idIsBetweenPeerAndSuccessor(currentPeerHashId,
-                                                          newPeerHashId,
-                                                          currentPeer.getSuccessor().getHashId())) {
+                                                   newPeerHashId,
+                                                   currentPeer.getSuccessor().getHashId())) {
                 try {
                     /*
                      * Current peer sends the new peer a message telling it to set its successor to the
@@ -72,9 +74,9 @@ class PlacementHandler {
                     placeThirdPeerInNetwork(currentPeer, newPeerAddress);
                 }
                 /*
-                 * Case for forth (and above) peer joining the network.
+                 * Case for fourth (and above) peer joining the network.
                  * Assumes that there exists at least three peers in the network if the current peer, which can be any
-                 * one of them, has marked a next successor.
+                 * peer, has a reference to a next successor.
                  */
                 else if (currentPeer.getNextSuccessor() != null) {
                     placeFourthAndAbovePeerInNetwork(currentPeer, newPeerAddress);
@@ -94,7 +96,7 @@ class PlacementHandler {
                     /*
                      * If the message could not be sent to the successor of current peer, then it
                      * sends it to its next successor.
-                     * Afterwards, the current peer updates its successor to next successor, and does nothing
+                     * Afterwards, the current peer updates its successor to its next successor, and does nothing
                      * to find a new next successor to reestablish the network since only one faulty peer per
                      * network is acceptable for this assignment.
                      */
@@ -113,8 +115,10 @@ class PlacementHandler {
 
     // Special case for placing second peer in network
     private static void placeSecondPeerInNetwork(Peer currentPeer, PeerAddress newPeerAddress) throws FaultyPeerException {
-        // Current peer sends the new peer a message telling it to set its successor to current peer
-        // Throws FaultyPeerException if connection could not be established to new peer
+        /*
+         * Current peer sends the new peer a message telling it to set its successor to current peer.
+         * Throws FaultyPeerException if connection could not be established to new peer.
+         */
         currentPeer.sendMessageToPeer(newPeerAddress,
                                       new OrganizeMessage(currentPeer.getPeerAddress(),
                                                           OrganizeMessage.Type.SET_NEW_SUCCESSOR));
@@ -125,9 +129,11 @@ class PlacementHandler {
 
     // Special case for placing third peer in network
     private static void placeThirdPeerInNetwork(Peer currentPeer, PeerAddress newPeerAddress) {
-        // Current peer sends its successor a message telling it to set its next successor to new peer
         try {
-            // Throws FaultyPeerException if connection could not be established to successor
+            /*
+             * Current peer sends its successor a message telling it to set its next successor to new peer.
+             * Throws FaultyPeerException if connection could not be established to successor.
+             */
             currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
                                           new OrganizeMessage(newPeerAddress,
                                                               OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
@@ -156,8 +162,11 @@ class PlacementHandler {
             return;
         }
 
-        // Current peer sends message to new peer telling it to set its next successor to current peer
         try {
+            /*
+             * Current peer sends message to new peer telling it to set its next successor to current peer.
+             * Throws FaultyPeerException if connection could not be established to new peer.
+             */
             currentPeer.sendMessageToPeer(newPeerAddress,
                                           new OrganizeMessage(currentPeer.getPeerAddress(),
                                                               OrganizeMessage.Type.SET_NEW_NEXT_SUCCESSOR));
@@ -190,6 +199,7 @@ class PlacementHandler {
             /*
              * Current peer sends message to new peer telling it to set its next successor to the next
              * successor of current peer.
+             * Throws FaultyPeerException if connection could not be established to new peer.
              */
             currentPeer.sendMessageToPeer(newPeerAddress,
                                           new OrganizeMessage(currentPeer.getNextSuccessor(),
@@ -203,16 +213,17 @@ class PlacementHandler {
         currentPeer.setNextSuccessor(currentPeer.getSuccessor());
         currentPeer.setSuccessor(newPeerAddress);
 
-        /*
-         * Current peer sends message to successor asking the following condition:
-         * "if the peer receiving this message has current peer as successor, then this peer
-         * must set its next successor to the new peer. If the peer does not live up to this
-         * condition, then it must pass on the message to its successor".
-         */
         try {
+            /*
+             * Current peer sends 'SetNextSuccessorMessage' to successor asking the following condition:
+             * "if the peer receiving this message has current peer as successor, then this peer
+             * must set its next successor to the new peer. If the peer does not live up to this
+             * condition, then it must pass on the message to its successor".
+             * Throws FaultyPeerException if connection could not be established to successor.
+             */
             currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
                                           new SetNextSuccessorMessage(currentPeer.getPeerAddress(),
-                                                                   newPeerAddress));
+                                                                      newPeerAddress));
         } catch (FaultyPeerException e) {
             Logging.printConnectionError(e, FAULTY_SUCCESSOR);
 
