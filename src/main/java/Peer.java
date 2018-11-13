@@ -108,10 +108,20 @@ class Peer {
                 }
                 else if (input instanceof StoreMessage) {
                     StoreMessage storeMessage = (StoreMessage) input;
-                    System.out.println("I ");
+
+                    System.out.println();
+                    System.out.println("I got a StoreMessage");
+                    System.out.println(String.format("I will store (key: %d, value: %s, ID: %s)",
+                            storeMessage.getKey(),
+                            storeMessage.getValue(),
+                            storeMessage.getKeyHashId()));
+
                     peer.storedData.put(storeMessage.getKey(),storeMessage.getValue());
-                    if (storeMessage.getCopyNumber() > 0) {
-                        storeMessage.setCopyNumber(storeMessage.getCopyNumber()-1);
+
+
+                    storeMessage.setCopyNumber(storeMessage.getCopyNumber()-1);
+                    if (storeMessage.getCopyNumber() > 0) { // bounce the message forward
+                        System.out.println("I will bounce the key,value forward.");
                         try {
                             peer.sendMessageToPeer(peer.successor, storeMessage);
                         } catch (FaultyPeerException f) {
@@ -123,16 +133,22 @@ class Peer {
                         }
                     }
 
-                    System.out.println(String.format("SAVED"));
                 }
                 else if (input instanceof PutMessage) {
                     PutMessage putMessage = (PutMessage) input;
+
+                    System.out.println();
+                    System.out.println(String.format("Received PUT-message (key: %d, value: %s, ID: %s)",
+                            putMessage.getKey(),
+                            putMessage.getValue(),
+                            putMessage.getKeyHashId()));
 
                     if (Peer.shouldBePlacedBetweenCurrentPeerAndSuccessor(
                             peer.ownAddress.getHashId(),
                             putMessage.getKeyHashId(),
                             peer.getSuccessor().getHashId())) {
                         try {
+                            System.out.println("Sending StoreMessage");
                             peer.sendMessageToPeer(peer.successor, new StoreMessage(putMessage.getKey(),putMessage.getValue(),2));
                         } catch (FaultyPeerException f){
                             try {
@@ -142,25 +158,26 @@ class Peer {
                             }
                         }
                     } else {
+                        System.out.println("Forwarding PutMessage");
                         try {
                             peer.sendMessageToPeer(peer.successor, putMessage);
                         } catch (FaultyPeerException f){
-                            return;
+                            try {
+                                peer.sendMessageToPeer(peer.nextSuccessor, putMessage);
+                            } catch (FaultyPeerException ff){
+                                return;
+                            }
                         }
                     }
-
-                    System.out.println(String.format("Received PUT-message (key: %d, value: %s, ID: %s)",
-                                                     putMessage.getKey(),
-                                                     putMessage.getValue(),
-                                                     putMessage.getKeyHashId()));
                 }
                 else if (input instanceof GetMessage) {
                     GetMessage getMessage = (GetMessage) input;
 
+                    System.out.println();
                     System.out.println("Receive a getMessage");
 
                     if (!peer.storedData.containsKey(getMessage.getKey())) { // forward hvis den ikke har dataen.
-                        System.out.println("try to forward it");
+                        System.out.println("Sending LookUpMessage");
                         try {
                             peer.sendMessageToPeer(peer.successor,
                                     new LookUpMessage(getMessage.getKey(),getMessage.getAddressToReceiver(),peer.ownAddress));
@@ -169,13 +186,14 @@ class Peer {
                         }
                         return;
                     } else { // hvis den selv har dataen.
-                        System.out.println("sending the value back to the client");
+                        System.out.println("I have the Data");
                         int key = getMessage.getKey();
                         String foundValue = peer.storedData.get(getMessage.getKey());
                         try {
                             this.peer.sendMessageToPeer(
                                     getMessage.getAddressToReceiver(),
                                     new PutMessage(key, foundValue));
+                            System.out.println("Sending the value back to the client");
                         } catch (FaultyPeerException e) {
                             Logging.debugLog("Can't send message to PUT-client. Full error details: " + e.getMessage(), true);
                         }
@@ -184,6 +202,7 @@ class Peer {
                 else if (input instanceof LookUpMessage) {
                     LookUpMessage lookUpMessage = (LookUpMessage) input;
 
+                    System.out.println();
                     System.out.println("Receive a LookUpMessage");
 
                     if (lookUpMessage.getPeerStartedSearch() == peer.ownAddress) { // hvis den har kørt hele vejen rundt.
@@ -201,10 +220,15 @@ class Peer {
                             Logging.debugLog("Can't send message to PUT-client. Full error details: " + e.getMessage(), true);
                         }
                     } else { // forward til den næste.
+                        System.out.println("Forwarting LookupMessage");
                         try {
                             peer.sendMessageToPeer(peer.successor, lookUpMessage);
                         } catch (FaultyPeerException f){
-                            return;
+                            try {
+                                peer.sendMessageToPeer(peer.nextSuccessor, lookUpMessage);
+                            } catch (FaultyPeerException ff){
+                                return;
+                            }
                         }
                     }
 
