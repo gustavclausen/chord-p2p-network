@@ -18,20 +18,20 @@ public class Main {
      JOIN run configuration
         - Arg 1: Command (must be JOIN)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Port for this process to bind to locally
 
      PUT run configuration
         - Arg 1: Command (must be PUT)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Key (integer)
         - Arg 5: Value (string)
 
      GET run configuration
         - Arg 1: Command (must be GET)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Port for this process to bind to locally
         - Arg 5: Key (integer)
      */
@@ -173,7 +173,7 @@ public class Main {
             Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending request to peer
             ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
 
-            requestOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
+            requestOutputStream.writeObject(new GetMessage(key, new PeerAddress(ownIp, ownPort)));
 
             // Waits for incoming connection with response
             Socket responseSocket = listenSocket.accept();
