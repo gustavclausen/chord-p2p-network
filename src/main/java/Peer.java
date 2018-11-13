@@ -1,21 +1,26 @@
 package main.java;
 
 import main.java.exceptions.FaultyPeerException;
+import main.java.handlers.IncomingMessageHandler;
 import main.java.messages.*;
 import main.java.utilities.Logging;
 
-import java.io.*;
-import java.math.BigInteger;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static main.java.utilities.Logging.ErrorType.SYSTEM_NONFUNCTIONAL;
+
 /**
  * Represents a peer in the P2P network
  */
-class Peer {
+public class Peer {
     private final PeerAddress ownAddress;
 
     /*
@@ -25,6 +30,7 @@ class Peer {
     private PeerAddress successor;
     private PeerAddress nextSuccessor; // Address of the successor's successor
 
+    private final IncomingMessageHandler incomingMessageHandler;
     private final Map<Integer, String> storedData;
 
     Peer(PeerAddress ownAddress) {
@@ -36,6 +42,7 @@ class Peer {
                                          this.ownAddress.getPort(),
                                          this.ownAddress.getHashId()));
 
+        this.incomingMessageHandler = new IncomingMessageHandler(this);
         new Listener(this).start(); // Starts to listen for incoming connections
     }
 
@@ -90,42 +97,22 @@ class Peer {
                     PlacementHandler.placeNewPeer(this.peer, (JoinMessage) input);
                 }
                 else if (input instanceof OrganizeMessage) {
-                    OrganizeMessage organizeMessage = (OrganizeMessage) input;
-
-                    switch (organizeMessage.getType()) {
-                        case SET_NEW_SUCCESSOR:
-                            this.peer.setSuccessor(organizeMessage.getPeerToPointTo());
-                            break;
-                        case SET_NEW_NEXT_SUCCESSOR:
-                            this.peer.setNextSuccessor(organizeMessage.getPeerToPointTo());
-                            break;
-                        default:
-                            break;
-                    }
+                    this.peer.incomingMessageHandler.handleOrganizeMessage((OrganizeMessage) input);
                 }
-                else if (input instanceof NextSuccessorMessage) {
-                    this.peer.handleNextSuccessorMessage((NextSuccessorMessage) input);
+                else if (input instanceof SetNextSuccessorMessage) {
+                    this.peer.incomingMessageHandler.handleSetNextSuccessorMessage((SetNextSuccessorMessage) input);
+                }
+                else if (input instanceof StoreMessage) {
+                    this.peer.incomingMessageHandler.handleStoreMessage((StoreMessage) input);
                 }
                 else if (input instanceof PutMessage) {
-                    PutMessage putMessage = (PutMessage) input;
-
-                    // TODO: Store storedData in network
-                    System.out.println(String.format("Received PUT-message (key: %d, value: %s, ID: %s)",
-                                                     putMessage.getKey(),
-                                                     putMessage.getValue(),
-                                                     putMessage.getKeyHashId()));
+                    this.peer.incomingMessageHandler.handlePutMessage((PutMessage) input);
                 }
                 else if (input instanceof GetMessage) {
-                    GetMessage getMessage = (GetMessage) input;
-
-                    // TODO: Check if it is in map or simply forward
-                    try {
-                        this.peer.sendMessageToPeer(new PeerAddress(getMessage.getIpOfRequester(),
-                                                                    getMessage.getPortOfRequester()),
-                                                    new PutMessage(1, "Test"));
-                    } catch (FaultyPeerException e) {
-                        Logging.debugLog("Can't send message to PUT-client. Full error details: " + e.getMessage(), true);
-                    }
+                    this.peer.incomingMessageHandler.handleGetMessage((GetMessage) input);
+                }
+                else if (input instanceof LookUpMessage) {
+                    this.peer.incomingMessageHandler.handleLookUpMessage((LookUpMessage) input);
                 }
             } catch (EOFException e) {
                 // Simply do nothing...  Incoming message is already deserialized
@@ -148,8 +135,8 @@ class Peer {
      */
     void joinNetworkByExistingPeer(PeerAddress addressOfExistingPeer) {
         try (
-             Socket existingPeerSocket = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
-             ObjectOutputStream outputStream = new ObjectOutputStream(existingPeerSocket.getOutputStream())
+                Socket existingPeerSocket = new Socket(addressOfExistingPeer.getIp(), addressOfExistingPeer.getPort());
+                ObjectOutputStream outputStream = new ObjectOutputStream(existingPeerSocket.getOutputStream())
         ) {
             if (existingPeerSocket.isConnected())
                 Logging.debugLog("Connected to peer.", false);
@@ -162,12 +149,29 @@ class Peer {
         }
     }
 
+    // TODO: Describe this
+    public void sendToBestPeer(Message message) {
+        try {
+            this.sendMessageToPeer(this.successor, message);
+        } catch (FaultyPeerException e) {
+            try {
+                // Backup
+                this.sendMessageToPeer(this.nextSuccessor, message);
+                // Update successor
+                this.setSuccessor(this.nextSuccessor);
+            } catch (FaultyPeerException e1) {
+                // Two faulty peers has now been detected, and the system is now nonfunctional
+                Logging.printConnectionError(e1, SYSTEM_NONFUNCTIONAL);
+            }
+        }
+    }
+
     /**
      * Peer tries to send a message to another peer in the network.
      * Throws 'FaultyPeerException' if a connection to the other peer - which address is taken as argument -
      * could not be established.
      */
-    void sendMessageToPeer(PeerAddress destinationPeer, Message message) throws FaultyPeerException {
+    public void sendMessageToPeer(PeerAddress destinationPeer, Message message) throws FaultyPeerException {
         try {
             Socket socket = ConnectionHandler.establishConnectionToPeer(destinationPeer);
 
@@ -188,44 +192,17 @@ class Peer {
     }
 
     /**
-     * Peer receiving 'NextSuccessorMessage'
-     */
-    private void handleNextSuccessorMessage(NextSuccessorMessage message) {
-        try {
-            // FIXME: Waits till organize message arrives. Make it smarter...
-            // This is for the new peer receiving the message first
-            while (this.successor == null);
-
-            BigInteger hashIdSuccessor = this.successor.getHashId();
-
-            if (hashIdSuccessor.equals(message.getSenderHashId())) {
-                this.setNextSuccessor(message.getNewPeerAddress());
-            } else {
-                sendMessageToPeer(this.successor, message); // Bounce the message to successor
-            }
-        } catch (FaultyPeerException e) {
-            Logging.debugLog("Could not send message to successor. Sending message to next successor instead. " +
-                             "Full error details: " + e.getMessage(), true);
-
-            // Here we would reestablish network but simply sends message to next successor instead
-            try {
-                sendMessageToPeer(this.nextSuccessor, message);
-            } catch (FaultyPeerException e1) {
-                Logging.debugLog("Could not send message to next successor. The system is now nonfunctional. " +
-                                 "Full error details: " + e.getMessage(), true);
-            }
-        }
-    }
-
-    PeerAddress getPeerAddress() {
+     ** GETTER AND SETTERS
+     **/
+    public PeerAddress getPeerAddress() {
         return this.ownAddress;
     }
 
-    PeerAddress getSuccessor() {
+    public PeerAddress getSuccessor() {
         return this.successor;
     }
 
-    void setSuccessor(PeerAddress newSuccessor) {
+    public void setSuccessor(PeerAddress newSuccessor) {
         this.successor = newSuccessor;
 
         Logging.debugLog(String.format("Updated successor to %s:%d (ID: %s)",
@@ -235,11 +212,11 @@ class Peer {
                          false);
     }
 
-    PeerAddress getNextSuccessor() {
+    public PeerAddress getNextSuccessor() {
         return this.nextSuccessor;
     }
 
-    void setNextSuccessor(PeerAddress newNextSuccessor) {
+    public void setNextSuccessor(PeerAddress newNextSuccessor) {
         this.nextSuccessor = newNextSuccessor;
 
         Logging.debugLog(String.format("Updated next successor to %s:%d (ID: %s)",
@@ -247,5 +224,9 @@ class Peer {
                                        newNextSuccessor.getPort(),
                                        newNextSuccessor.getHashId()),
                          false);
+    }
+
+    public Map<Integer, String> getStoredData() {
+        return storedData;
     }
 }

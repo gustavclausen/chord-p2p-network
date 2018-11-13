@@ -13,7 +13,7 @@ public class PeerAddress implements Serializable {
     private final int port;
     private final BigInteger hashId;
 
-    PeerAddress(String ip, int port) {
+    public PeerAddress(String ip, int port) {
         this.ip = ip;
         this.port = port;
         this.hashId = SHA1Hasher.hashAddress(this);
@@ -27,7 +27,7 @@ public class PeerAddress implements Serializable {
         return port;
     }
 
-    BigInteger getHashId() {
+    public BigInteger getHashId() {
         return hashId;
     }
 }

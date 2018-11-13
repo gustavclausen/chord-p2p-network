@@ -1,9 +1,10 @@
 package main.java.clients;
 
+import main.java.PeerAddress;
 import main.java.messages.GetMessage;
 import main.java.messages.PutMessage;
-import main.java.utilities.Logging;
 import main.java.utilities.Common;
+import main.java.utilities.Logging;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -32,7 +33,7 @@ public class GetClient {
             Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending 'GetMessage' to peer
             ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
 
-            requestOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
+            requestOutputStream.writeObject(new GetMessage(key, new PeerAddress(ownIp, ownPort)));
 
             // Waits for incoming connection with response
             Socket responseSocket = listenSocket.accept();

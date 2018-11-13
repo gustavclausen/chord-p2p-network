@@ -1,5 +1,6 @@
 package main.java.messages;
 
+import main.java.PeerAddress;
 import main.java.utilities.SHA1Hasher;
 
 import java.math.BigInteger;
@@ -7,15 +8,12 @@ import java.math.BigInteger;
 public class GetMessage extends Message {
     private final int key;
     private final BigInteger keyHashId;
-    private final String ipOfRequester;
-    private final int portOfRequester;
-    private BigInteger hashOfFirstReceivedPeer;
+    private final PeerAddress addressOfGetClient;
 
-    public GetMessage(int key, String ipOfRequester, int portOfRequester) {
+    public GetMessage(int key, PeerAddress addressOfGetClient) {
         this.key = key;
         this.keyHashId = SHA1Hasher.hashKey(key);
-        this.ipOfRequester = ipOfRequester;
-        this.portOfRequester = portOfRequester;
+        this.addressOfGetClient = addressOfGetClient;
     }
 
     public int getKey() {
@@ -26,19 +24,7 @@ public class GetMessage extends Message {
         return this.keyHashId;
     }
 
-    public String getIpOfRequester() {
-        return ipOfRequester;
-    }
-
-    public int getPortOfRequester() {
-        return portOfRequester;
-    }
-
-    public BigInteger getHashOfFirstReceivedPeer() {
-        return this.hashOfFirstReceivedPeer;
-    }
-
-    public void setHashOfFirstReceivedPeer(BigInteger hashOfFirstReceivedPeer) {
-        this.hashOfFirstReceivedPeer = hashOfFirstReceivedPeer;
+    public PeerAddress getAddressOfGetClient() {
+        return this.addressOfGetClient;
     }
 }

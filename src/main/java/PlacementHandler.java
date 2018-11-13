@@ -3,7 +3,8 @@ package main.java;
 import main.java.exceptions.FaultyPeerException;
 import main.java.messages.JoinMessage;
 import main.java.messages.OrganizeMessage;
-import main.java.messages.NextSuccessorMessage;
+import main.java.messages.SetNextSuccessorMessage;
+import main.java.utilities.Common;
 import main.java.utilities.Logging;
 
 import java.math.BigInteger;
@@ -40,9 +41,13 @@ class PlacementHandler {
             }
         }
         else if (currentPeer.getSuccessor() != null) {
-            if (newPeerShouldBePlacedBetweenCurrentPeerAndSuccessor(currentPeerHashId,
-                                                             newPeerHashId,
-                                                             currentPeer.getSuccessor().getHashId())) {
+            /*
+             * Determines if the new peer joining the network should be placed between the current peer
+             * and its successor based on the hash id value of all three peers
+             */
+            if (Common.idIsBetweenPeerAndSuccessor(currentPeerHashId,
+                                                          newPeerHashId,
+                                                          currentPeer.getSuccessor().getHashId())) {
                 try {
                     /*
                      * Current peer sends the new peer a message telling it to set its successor to the
@@ -206,7 +211,7 @@ class PlacementHandler {
          */
         try {
             currentPeer.sendMessageToPeer(currentPeer.getSuccessor(),
-                                          new NextSuccessorMessage(currentPeer.getPeerAddress(),
+                                          new SetNextSuccessorMessage(currentPeer.getPeerAddress(),
                                                                    newPeerAddress));
         } catch (FaultyPeerException e) {
             Logging.printConnectionError(e, FAULTY_SUCCESSOR);
@@ -218,41 +223,5 @@ class PlacementHandler {
              */
             currentPeer.setSuccessor(currentPeer.getNextSuccessor());
         }
-    }
-
-    /**
-     * Determines if the new peer joining the network should be placed between the current peer
-     * and its successor based on the hash id value of all three peers
-     */
-    private static boolean newPeerShouldBePlacedBetweenCurrentPeerAndSuccessor(BigInteger currentPeerHashId,
-                                                                               BigInteger newPeerHashId,
-                                                                               BigInteger successorHashId) {
-        /*
-         * If the id of the current peer is lower than the id of the new peer, and the id of its
-         * successor is higher than the new peer's, then the new peer should be placed between the current peer
-         * and its successor
-         */
-        if (newPeerHashId.compareTo(currentPeerHashId) > 0 && successorHashId.compareTo(newPeerHashId) > 0) {
-            return true;
-        }
-        /*
-         * Special case for the same condition as above. It is possible that the current peer has the
-         * "highest" id in the network, and of course has the peer with the "lowest" id as its successor.
-         * Furthermore, the new peer has a id greater than the current peer - now becoming the greatest in
-         * the network - and should therefore be placed between the current peer and its successor.
-         */
-        else if (successorHashId.compareTo(currentPeerHashId) < 0 && newPeerHashId.compareTo(currentPeerHashId) > 0) {
-            return true;
-        }
-        /*
-         * Same special case as the one above, only this time the new peer will become the peer with the "lowest" id
-         * in the network, and should therefore be placed between the current peer with the "highest" id and its
-         * successor with the "current lowest" id.
-         */
-        else if (successorHashId.compareTo(currentPeerHashId) < 0 && newPeerHashId.compareTo(successorHashId) < 0) {
-            return true;
-        }
-
-        return false;
     }
 }

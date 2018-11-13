@@ -13,20 +13,20 @@ public class Main {
      JOIN run configuration
         - Arg 1: Command (must be JOIN)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Port for this process to bind to locally
 
      PUT run configuration
         - Arg 1: Command (must be PUT)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Key (integer)
         - Arg 5: Value (string)
 
      GET run configuration
         - Arg 1: Command (must be GET)
         - Arg 2: IP-address of existing peer in network
-        - Arg 3: Port of existing peer in network
+        - Arg 3: Port       of existing peer in network
         - Arg 4: Port for this process to bind to locally
         - Arg 5: Key (integer)
      */

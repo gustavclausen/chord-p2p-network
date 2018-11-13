@@ -5,11 +5,11 @@ import main.java.utilities.SHA1Hasher;
 
 import java.math.BigInteger;
 
-public class NextSuccessorMessage extends Message {
+public class SetNextSuccessorMessage extends Message {
     private final BigInteger senderHashId;
     private final PeerAddress newPeerAddress;
 
-    public NextSuccessorMessage(PeerAddress senderPeerAddress, PeerAddress newPeerAddress) {
+    public SetNextSuccessorMessage(PeerAddress senderPeerAddress, PeerAddress newPeerAddress) {
         this.senderHashId = SHA1Hasher.hashAddress(senderPeerAddress);
         this.newPeerAddress = newPeerAddress;
     }
