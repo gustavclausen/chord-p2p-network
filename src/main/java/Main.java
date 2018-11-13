@@ -1,13 +1,8 @@
 package main.java;
 
-import main.java.messages.GetMessage;
-import main.java.messages.PutMessage;
-import main.java.utilities.Logging;
-
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.*;
+import main.java.clients.GetClient;
+import main.java.clients.PutClient;
+import main.java.utilities.StartupUtils;
 
 public class Main {
     /**
@@ -73,7 +68,7 @@ public class Main {
                                                                "<OWN PORT TO BIND TO> <KEY (INTEGER)>" +
                                                                "<VALUE (STRING)> to use this command.");
 
-                        put(args);
+                        PutClient.put(args);
                         break;
                     case GET:
                         if (args.length != 5)
@@ -83,7 +78,7 @@ public class Main {
                                                                "<OWN PORT TO BIND TO> <KEY (INTEGER)>) to use" +
                                                                "this command.");
 
-                        get(args);
+                        GetClient.get(args);
                         break;
                 }
             } catch (IllegalArgumentException e) {
@@ -98,8 +93,8 @@ public class Main {
 
     // New peer (the first one) starts a new network
     private static void createNewNetwork(String[] programArguments) {
-        String ownIp = getOwnIp();
-        int ownPort = parseInteger(programArguments[1]);
+        String ownIp = StartupUtils.getOwnIp();
+        int ownPort = StartupUtils.parseInteger(programArguments[1]);
 
         System.out.println("Trying to start a new network ...");
 
@@ -108,11 +103,11 @@ public class Main {
 
     // New peer joins network by an existing peer in that network
     private static void joinExistingNetwork(String[] programArguments) {
-        String ownIp = getOwnIp();
-        int ownPort = parseInteger(programArguments[3]);
+        String ownIp = StartupUtils.getOwnIp();
+        int ownPort = StartupUtils.parseInteger(programArguments[3]);
 
         String existingPeerIp = programArguments[1];
-        int existingPeerPort = parseInteger(programArguments[2]);
+        int existingPeerPort = StartupUtils.parseInteger(programArguments[2]);
 
         try {
             Peer peer = new Peer(new PeerAddress(ownIp, ownPort));
@@ -129,87 +124,6 @@ public class Main {
                                                              existingPeerIp,
                                                              existingPeerPort));
         }
-    }
-
-    /**
-     * Sends a 'PutMessage' to the peer which address is taken as argument to program.
-     * Terminates the process afterwards.
-     */
-    private static void put(String[] programArguments) {
-        String peerAddress = programArguments[1];
-        int peerPort = parseInteger(programArguments[2]);
-
-        int key = parseInteger(programArguments[3]);
-        String value = programArguments[4];
-
-        try (
-             Socket socket = new Socket(peerAddress, peerPort);
-             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream())
-        ) {
-            outputStream.writeObject(new PutMessage(key, value));
-        } catch (SocketException e) {
-            Logging.debugLog("Could not connect to given peer. Full error details: " + e.getMessage(), true);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Sends a 'GetMessage' to the peer which address is taken as argument to program.
-     * Afterwards listen on the port - also taken as argument to program - for any response.
-     */
-    private static void get(String[] programArguments) {
-        String peerAddress = programArguments[1];
-        int peerPort = parseInteger(programArguments[2]);
-
-        String ownIp = getOwnIp();
-        int ownPort = parseInteger(programArguments[3]);
-
-        int key = parseInteger(programArguments[4]);
-
-        try {
-            ServerSocket listenSocket = new ServerSocket(ownPort); // Socket to listen for response to 'GetMessage'
-
-            Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending request to peer
-            ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
-
-            requestOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
-
-            // Waits for incoming connection with response
-            Socket responseSocket = listenSocket.accept();
-            ObjectInputStream responseInputStream = new ObjectInputStream(responseSocket.getInputStream());
-
-            Object input = responseInputStream.readObject();
-
-            // Print the content of the response
-            if (input instanceof PutMessage) {
-                PutMessage message = (PutMessage) input;
-
-                System.out.println(String.format("Key: %d, value: %s", message.getKey(), message.getValue()));
-            }
-        } catch (SocketException e) {
-            Logging.debugLog("Could not connect to given peer. Full error details: " + e.getMessage(), true);
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static int parseInteger(String portAsString) {
-        try {
-            return Integer.parseInt(portAsString);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(String.format("The given value (%s) must be a integer.", portAsString));
-        }
-    }
-
-    private static String getOwnIp() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-
-        return null;
     }
 
     private enum Command {
