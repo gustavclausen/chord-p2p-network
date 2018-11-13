@@ -224,8 +224,7 @@ class RoutingHandler {
          * in the network. Thus, if the current peer has the lowest id in the network and receives the 'JoinMessage' as
          * the first in the network, then the last condition will evaluate to false.
          */
-        else if (newPeerHashId.compareTo(currentPeerHashId) < 0 && successorHashId.compareTo(newPeerHashId) > 0 &&
-                 currentPeerHashId.compareTo(successorHashId) > 0) {
+        else if (successorHashId.compareTo(currentPeerHashId) < 0 && newPeerHashId.compareTo(successorHashId) < 0) {
             return true;
         }
 
