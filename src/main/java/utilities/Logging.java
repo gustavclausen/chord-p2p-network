@@ -22,13 +22,13 @@ public class Logging {
     /**
      * Print a predefined error message based on the type of the error to the console
      */
-    public static void printConnectionError(ErrorType type, FaultyPeerException e) {
+    public static void printConnectionError(FaultyPeerException e, ErrorType type) {
         switch (type) {
             case FAULTY_SUCCESSOR:
-                debugLog("Faulty successor", true);
+                debugLog("Could not send message to successor. Full error details: " + e.getMessage(), true);
                 break;
             case FAULTY_NEXTSUCCESSOR:
-                debugLog("Faulty next successor", true);
+                debugLog("Could not send message to next successor. Full error details: " + e.getMessage(), true);
                 break;
             case FAULTY_NEWPEER:
                 debugLog("Could not send message to new peer. Full error details: " + e.getMessage(), true);

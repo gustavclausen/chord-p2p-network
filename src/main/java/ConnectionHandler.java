@@ -8,7 +8,7 @@ import java.net.SocketException;
 
 class ConnectionHandler {
     /**
-     * Tries to establish connection to Peer which address is taken as argument.
+     * Tries to establish connection to peer which address is taken as argument.
      * If connection could not be established, then a FaultyPeerException will be thrown.
      * If connection is established, then the socket-connection is returned.
      */

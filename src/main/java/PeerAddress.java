@@ -5,6 +5,9 @@ import main.java.utilities.SHA1Hasher;
 import java.io.Serializable;
 import java.math.BigInteger;
 
+/**
+ * Represent the address (IP and port) of a peer and contains its hash id
+ */
 public class PeerAddress implements Serializable {
     private final String ip;
     private final int port;

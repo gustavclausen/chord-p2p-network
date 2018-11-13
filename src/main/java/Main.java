@@ -2,7 +2,7 @@ package main.java;
 
 import main.java.clients.GetClient;
 import main.java.clients.PutClient;
-import main.java.utilities.StartupUtils;
+import main.java.utilities.Common;
 
 public class Main {
     /**
@@ -93,8 +93,8 @@ public class Main {
 
     // New peer (the first one) starts a new network
     private static void createNewNetwork(String[] programArguments) {
-        String ownIp = StartupUtils.getOwnIp();
-        int ownPort = StartupUtils.parseInteger(programArguments[1]);
+        String ownIp = Common.getOwnIp();
+        int ownPort = Common.parseInteger(programArguments[1]);
 
         System.out.println("Trying to start a new network ...");
 
@@ -103,11 +103,11 @@ public class Main {
 
     // New peer joins network by an existing peer in that network
     private static void joinExistingNetwork(String[] programArguments) {
-        String ownIp = StartupUtils.getOwnIp();
-        int ownPort = StartupUtils.parseInteger(programArguments[3]);
+        String ownIp = Common.getOwnIp();
+        int ownPort = Common.parseInteger(programArguments[3]);
 
         String existingPeerIp = programArguments[1];
-        int existingPeerPort = StartupUtils.parseInteger(programArguments[2]);
+        int existingPeerPort = Common.parseInteger(programArguments[2]);
 
         try {
             Peer peer = new Peer(new PeerAddress(ownIp, ownPort));

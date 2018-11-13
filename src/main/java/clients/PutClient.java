@@ -2,7 +2,7 @@ package main.java.clients;
 
 import main.java.messages.PutMessage;
 import main.java.utilities.Logging;
-import main.java.utilities.StartupUtils;
+import main.java.utilities.Common;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -16,9 +16,9 @@ public class PutClient {
      */
     public static void put(String[] programArguments) {
         String peerAddress = programArguments[1];
-        int peerPort = StartupUtils.parseInteger(programArguments[2]);
+        int peerPort = Common.parseInteger(programArguments[2]);
 
-        int key = StartupUtils.parseInteger(programArguments[3]);
+        int key = Common.parseInteger(programArguments[3]);
         String value = programArguments[4];
 
         try (
@@ -27,7 +27,8 @@ public class PutClient {
         ) {
             outputStream.writeObject(new PutMessage(key, value));
         } catch (SocketException e) {
-            Logging.debugLog("Could not connect to given peer. Full error details: " + e.getMessage(), true);
+            Logging.debugLog("Could not establish connection to given peer. Full error details: " + e.getMessage(),
+                             true);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -3,7 +3,7 @@ package main.java.utilities;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-public class StartupUtils {
+public class Common {
     public static int parseInteger(String portAsString) {
         try {
             return Integer.parseInt(portAsString);

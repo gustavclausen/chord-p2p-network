@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Represents a peer in the network
+ * Represents a peer in the P2P network
  */
 class Peer {
     private final PeerAddress ownAddress;
@@ -87,7 +87,7 @@ class Peer {
                      * Evaluate and acts upon the placement of a new peer joining the network relative to
                      * this peer receiving the message
                      */
-                    RoutingHandler.placementOfNewPeer(this.peer, (JoinMessage) input);
+                    PlacementHandler.placeNewPeer(this.peer, (JoinMessage) input);
                 }
                 else if (input instanceof OrganizeMessage) {
                     OrganizeMessage organizeMessage = (OrganizeMessage) input;

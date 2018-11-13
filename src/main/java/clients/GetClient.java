@@ -3,7 +3,7 @@ package main.java.clients;
 import main.java.messages.GetMessage;
 import main.java.messages.PutMessage;
 import main.java.utilities.Logging;
-import main.java.utilities.StartupUtils;
+import main.java.utilities.Common;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -19,17 +19,17 @@ public class GetClient {
      */
     public static void get(String[] programArguments) {
         String peerAddress = programArguments[1];
-        int peerPort = StartupUtils.parseInteger(programArguments[2]);
+        int peerPort = Common.parseInteger(programArguments[2]);
 
-        String ownIp = StartupUtils.getOwnIp();
-        int ownPort = StartupUtils.parseInteger(programArguments[3]);
+        String ownIp = Common.getOwnIp();
+        int ownPort = Common.parseInteger(programArguments[3]);
 
-        int key = StartupUtils.parseInteger(programArguments[4]);
+        int key = Common.parseInteger(programArguments[4]);
 
         try {
             ServerSocket listenSocket = new ServerSocket(ownPort); // Socket to listen for response to 'GetMessage'
 
-            Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending request to peer
+            Socket requestSocket = new Socket(peerAddress, peerPort); // Socket for sending 'GetMessage' to peer
             ObjectOutputStream requestOutputStream = new ObjectOutputStream(requestSocket.getOutputStream());
 
             requestOutputStream.writeObject(new GetMessage(key, ownIp, ownPort));
@@ -47,7 +47,8 @@ public class GetClient {
                 System.out.println(String.format("Key: %d, value: %s", message.getKey(), message.getValue()));
             }
         } catch (SocketException e) {
-            Logging.debugLog("Could not connect to given peer. Full error details: " + e.getMessage(), true);
+            Logging.debugLog("Could not establish connection to given peer. Full error details: " + e.getMessage(),
+                             true);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
