@@ -216,7 +216,7 @@ class RoutingHandler {
          * network until the new peer with a higher id joins. The id of the peer with the highest id in the network has
          * to have a successor which id is the lowest id of the network.
          */
-        else if (newPeerHashId.compareTo(currentPeerHashId) > 0 && successorHashId.compareTo(newPeerHashId) < 0) {
+        else if (successorHashId.compareTo(currentPeerHashId) < 0 && newPeerHashId.compareTo(currentPeerHashId) > 0) {
             return true;
         }
         /*
