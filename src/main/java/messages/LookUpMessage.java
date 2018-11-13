@@ -8,11 +8,11 @@ import java.math.BigInteger;
 public class LookUpMessage extends Message {
     private final int key;
     private final PeerAddress peerStartedSearch;
-    private final PeerAddress toPeer;
+    private final PeerAddress clientAddress;
 
-    public LookUpMessage(int key, PeerAddress toPeer, PeerAddress peerStartedSearch) {
+    public LookUpMessage(int key, PeerAddress clientAddress, PeerAddress peerStartedSearch) {
         this.key = key;
-        this.toPeer = toPeer;
+        this.clientAddress = clientAddress;
         this.peerStartedSearch = peerStartedSearch;
     }
 
@@ -22,5 +22,5 @@ public class LookUpMessage extends Message {
 
     public PeerAddress getPeerStartedSearch() {return peerStartedSearch; }
 
-    public PeerAddress getToPeer() { return toPeer; }
+    public PeerAddress getClientAddress() { return clientAddress; }
 }
