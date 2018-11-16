@@ -5,7 +5,7 @@ import main.java.PeerAddress;
 import java.math.BigInteger;
 
 /**
- * Message is a request for data associated the given key to the peer receiving the message
+ * Message is a request for data associated the given key from a 'GetMessage'
  */
 public class LookupMessage extends Message {
     private final int key;

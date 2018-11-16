@@ -26,7 +26,7 @@ public class Peer {
     private final PeerAddress ownAddress;
 
     /*
-     * Address of the peer laying next to this peer clockwise "around the ring".
+     * Address of the peer laying next to this peer clockwise around the ring.
      * Defined as a successor to this peer.
      */
     private PeerAddress successor;
@@ -138,7 +138,7 @@ public class Peer {
     }
 
     /**
-     * Peer tries to join network by an existing peer in that network by sending a 'JoinMessage'-message to that
+     * Peer tries to join network by an existing peer in its network by sending a 'JoinMessage'-message to that
      * existing peer
      */
     void joinNetworkByExistingPeer(PeerAddress addressOfExistingPeer) {

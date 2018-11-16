@@ -21,13 +21,13 @@ public class IncomingMessageHandler {
 
     /*
      * When a peer receives this message, it checks the following condition:
-     * if the original sender of the message is the peer's successor, then this peer
+     * if the original sender of the message is this peer's successor, then this peer
      * must set its next successor to the new peer joining the network.
      * If the peer does not live up to this condition, then it must pass on the message to its
      * successor.
      */
     public void handleSetNextSuccessorMessage(SetNextSuccessorMessage message) {
-        // Wait till peer updates its successor to another peer
+        // Waits till peer updates its successor to another peer
         while (this.peer.getSuccessor() == null);
 
         BigInteger hashIdSuccessor = this.peer.getSuccessor().getHashId();
@@ -35,7 +35,7 @@ public class IncomingMessageHandler {
         if (hashIdSuccessor.equals(message.getSenderPeerHashId())) {
             this.peer.setNextSuccessor(message.getNewPeerAddress());
         } else {
-            this.peer.sendMessageToSuccessor(message); // Pass on the message to successor
+            this.peer.sendMessageToSuccessor(message); // Pass on the message to successor in the ring
         }
     }
 
@@ -58,7 +58,7 @@ public class IncomingMessageHandler {
 
         message.setRemainingReplicasNeeded(message.getRemainingReplicasNeeded() - 1);
 
-        // If any more replicas of the data is needed, then the message is sent to the peer's successor
+        // If any more replicas of the data is needed, then the message is sent to the peer's successor in the ring
         if (message.getRemainingReplicasNeeded() > 0) this.peer.sendMessageToSuccessor(message);
     }
 
@@ -68,7 +68,7 @@ public class IncomingMessageHandler {
          * the peer receiving this message checks if the hash value of the key lies
          * between itself and its successor. If that is the case, then the peer tells
          * its successor to store the data and distribute replicas of it with a 'StoreMessage'.
-         * If not, the peer forwards this message to its successor.
+         * If not, the peer forwards this message to its successor in the ring.
          */
         if (Common.idIsBetweenPeerAndSuccessor(this.peer.getPeerAddress().getHashId(),
                                                message.getKeyHashId(),
@@ -78,12 +78,48 @@ public class IncomingMessageHandler {
                                                               message.getValue(),
                                                               2));
         } else {
-            this.peer.sendMessageToSuccessor(message);
+            this.peer.sendMessageToSuccessor(message); // Pass on the message to successor in the ring
         }
     }
 
     public void handleGetMessage(GetMessage message) {
-        // Check if peer has the requested data itself
+        // Check if this peer has the requested data itself
+        String valueToKey = this.peer.getStoredData().get(message.getKey());
+
+        // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
+        if (valueToKey != null) {
+            try {
+                this.peer.sendMessageToPeer(message.getClientAddress(), new PutMessage(message.getKey(),
+                                                                                       valueToKey));
+            } catch (FaultyPeerException e) {
+                Logging.debugLog(String.format("Could not connect to client requesting the data (key: %d).",
+                                               message.getKey()),
+                                 true);
+            }
+        }
+        /*
+         * If the peer does not have the data, the peer forwards the request to its successor by sending it
+         * a 'LookupMessage'
+         */
+        else {
+            this.peer.sendMessageToSuccessor(new LookupMessage(message.getKey(),
+                                                       message.getClientAddress(),
+                                                       this.peer.getPeerAddress().getHashId()));
+        }
+    }
+
+    public void handleLookupMessage(LookupMessage message) {
+        /*
+         * The peer receives its own 'LookupMessage' back.
+         * This means that the request has been through all peers - around the ring - in the network, which means that
+         * there is no associated value with the key given by the 'GetClient'. Therefore, it will not be forwarded.
+         */
+        if (message.getHashIdOfPeerStartedLookup().compareTo(this.peer.getPeerAddress().getHashId()) == 0) {
+            Logging.debugLog(String.format("A value for the given key (%d) was not found.", message.getKey()), false);
+            return;
+        }
+
+        // Check if this peer has the requested data
         String valueToKey = this.peer.getStoredData().get(message.getKey());
 
         // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
@@ -97,44 +133,7 @@ public class IncomingMessageHandler {
                                  true);
             }
         }
-        /*
-         * If the peer does not have the data, the peer forwards the request to its successor by sending it
-         * a 'LookupMessage'
-         */
-        else {
-            this.peer.sendMessageToSuccessor(new LookupMessage(message.getKey(),
-                                                       message.getGetClientAddress(),
-                                                       this.peer.getPeerAddress().getHashId()));
-        }
-    }
-
-    public void handleLookupMessage(LookupMessage message) {
-        /*
-         * The peer receives its own 'LookupMessage' back.
-         * This means that the request has been through all peers in the network, which means that there is no
-         * associated value with the key given by the 'GetClient'.
-         */
-        if (message.getHashIdOfPeerStartedLookup().compareTo(this.peer.getPeerAddress().getHashId()) == 0) {
-            Logging.debugLog(String.format("A value for the given key (%d) was not found.", message.getKey()), false);
-            return;
-        }
-
-        // Check if peer has the requested data
-        String valueToKey = this.peer.getStoredData().get(message.getKey());
-
-        // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
-        if (valueToKey != null) {
-            try {
-                this.peer.sendMessageToPeer(message.getGetClientAddress(), new PutMessage(message.getKey(), valueToKey));
-            } catch (FaultyPeerException e) {
-                Logging.debugLog(String.format("Could not connect to client requesting the data (key: %d).",
-                                               message.getKey()),
-                                 true);
-            }
-        }
-        /*
-         * If the peer does not have the data, the peer forwards the message (hence the request) to its successor
-         */
+        // If this peer does not have the data, the peer forwards the message (hence the request) to its successor
         else {
             this.peer.sendMessageToSuccessor(message);
         }

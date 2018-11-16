@@ -8,18 +8,18 @@ import main.java.PeerAddress;
  */
 public class GetMessage extends Message {
     private final int key;
-    private final PeerAddress getClientAddress;
+    private final PeerAddress clientAddress;
 
-    public GetMessage(int key, PeerAddress getClientAddress) {
+    public GetMessage(int key, PeerAddress clientAddress) {
         this.key = key;
-        this.getClientAddress = getClientAddress;
+        this.clientAddress = clientAddress;
     }
 
     public int getKey() {
         return this.key;
     }
 
-    public PeerAddress getGetClientAddress() {
-        return this.getClientAddress;
+    public PeerAddress getClientAddress() {
+        return this.clientAddress;
     }
 }

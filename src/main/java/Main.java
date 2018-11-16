@@ -111,7 +111,7 @@ public class Main {
         try {
             Peer peer = new Peer(new PeerAddress(ownIp, ownPort));
 
-            System.out.println(String.format("Trying to join network by peer %s:%d ...",
+            System.out.println(String.format("Trying to join network by peer %s:%d",
                                              existingPeerIp,
                                              existingPeerPort));
 

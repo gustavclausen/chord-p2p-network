@@ -15,7 +15,8 @@ import static main.java.utilities.Logging.ErrorType.*;
 
 /*
  * IMPORTANT NOTE: A peer will not be able to rejoin the network after disconnection without
- * destroying the order of successors for the peers it rejoins.
+ * destroying the order of successors for the peers it rejoins. If it wish to rejoin, then
+ * it must be registered as a new peer and join by an existing peer in the network.
  */
 public class PlacementHandler {
     /**
@@ -45,7 +46,7 @@ public class PlacementHandler {
         else if (currentPeer.getSuccessor() != null) {
             /*
              * Determines if the new peer joining the network should be placed between the current peer
-             * and its successor based on the hash id value of all three peers
+             * and its successor in the ring based on the hash id value of all three peers.
              */
             if (Common.idIsBetweenPeerAndSuccessor(currentPeerHashId,
                                                    newPeerHashId,
@@ -75,8 +76,8 @@ public class PlacementHandler {
                 }
                 /*
                  * Case for fourth (and above) peer joining the network.
-                 * Assumes that there exists at least three peers in the network if the current peer, which can be any
-                 * peer, has a reference to a next successor.
+                 * Assumes that there exists at least three peers in the network if the current peer - which can be any
+                 * peer - has a reference to a next successor.
                  */
                 else if (currentPeer.getNextSuccessor() != null) {
                     placeFourthAndAbovePeerInNetwork(currentPeer, newPeerAddress);
@@ -84,7 +85,7 @@ public class PlacementHandler {
             }
             /*
              * Pass on the 'JoinMessage' to successor if the new peer should not be placed between the current peer and
-             * its successor.
+             * its successor in the ring.
              */
             else {
                 try {

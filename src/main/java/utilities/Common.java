@@ -49,7 +49,7 @@ public class Common {
         }
         /*
          * Same special case as the one above, only this time the examined id has a lower id than the successor of the
-         * pivot peer, which has the "highest" id in the network. Thus, the examined id is between the pivot peer
+         * pivot peer (which has the "highest" id in the network). Thus, the examined id is between the pivot peer
          * with the "highest" id and its successor with the "lowest" id in the network.
          */
         else if (successorHashId.compareTo(pivotPeerHashId) < 0 && examinedId.compareTo(successorHashId) < 0) {

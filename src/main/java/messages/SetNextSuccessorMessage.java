@@ -6,7 +6,7 @@ import main.java.utilities.SHA1Hasher;
 import java.math.BigInteger;
 
 /**
- * Message used to update the next successor of a peer after that a new peer has been placed
+ * Message used to update the next successor of a peer after a new peer has been placed
  * in the network.
  */
 public class SetNextSuccessorMessage extends Message {
