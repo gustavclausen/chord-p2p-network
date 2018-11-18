@@ -67,7 +67,11 @@ public class Main {
                                                                "<PORT OF EXISTING PEER IN NETWORK> " +
                                                                "<KEY (INTEGER)> <VALUE (STRING)> to use this command.");
 
-                        PutClient.put(args);
+                        PutClient.put( args[1]
+                                     , Common.parseInteger(args[2])
+                                     , Common.parseInteger(args[3])
+                                     , args[4]
+                                     );
                         break;
                     case GET:
                         if (args.length != 5)
@@ -77,7 +81,11 @@ public class Main {
                                                                "<OWN PORT TO BIND TO> <KEY (INTEGER)>) to use" +
                                                                "this command.");
 
-                        GetClient.get(args);
+                        GetClient.get( args[1]
+                                     , Common.parseInteger(args[2])
+                                     , Common.parseInteger(args[3])
+                                     , Common.parseInteger(args[4])
+                                     );
                         break;
                 }
             } catch (IllegalArgumentException e) {

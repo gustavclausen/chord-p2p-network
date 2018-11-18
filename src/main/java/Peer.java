@@ -41,21 +41,32 @@ public class Peer {
     // Key-value pairs that this peer is responsible for storing
     private final Map<Integer, String> storedData;
 
+    // Thread that is listening
+    private Listener listener;
+
     Peer(PeerAddress ownAddress) {
         this.ownAddress = ownAddress;
         this.incomingMessageHandler = new IncomingMessageHandler(this);
         this.storedData = new HashMap<>();
 
-        System.out.println(String.format("Peer started on %s:%d (ID: %s)",
-                                         this.ownAddress.getIp(),
-                                         this.ownAddress.getPort(),
-                                         this.ownAddress.getHashId()));
+        System.out.println(String.format("Peer started on %s", this.ownAddress));
 
-        new Listener(this).start(); // Starts to listen for incoming connections
+        this.listener = new Listener(this);
+        this.listener.start(); // Starts to listen for incoming connections
+    }
+
+    public void stop() {
+        this.listener.abort();
+    }
+
+    @Override
+    public String toString() {
+        return this.ownAddress.toString();
     }
 
     private class Listener extends Thread {
         private final Peer peer; // Reference to peer that initialized this thread
+        private ServerSocket socket; // Reference to listening socket (needed to kill Listener via "abort")
 
         private Listener(Peer peer) {
             this.peer = peer;
@@ -67,7 +78,8 @@ public class Peer {
          */
         @Override
         public void run() {
-            try (ServerSocket socket = new ServerSocket(this.peer.ownAddress.getPort())) {
+            try {
+                this.socket = new ServerSocket(this.peer.ownAddress.getPort());
                 System.out.println("Listening...");
 
                 while (true) {
@@ -75,7 +87,23 @@ public class Peer {
                     new ClientHandler(clientSocket, this.peer).start();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println( String.format("Peer %s exited.", this.peer)
+                                  + " Exception: \"" + e.getMessage() + "\""
+                                  );
+            } finally {
+                try {
+                    this.socket.close();
+                } catch (IOException e) {
+                    // Ignore exception from closing socket
+                }
+            }
+        }
+
+        void abort() {
+            try {
+                this.socket.close();
+            } catch (IOException e) {
+                // Ignore exception from closing socket
             }
         }
     }
@@ -191,11 +219,9 @@ public class Peer {
                 outputStream.writeObject(message);
             } else {
                 Logging.debugLog(String.format("Failed to send message (type: %s) to peer " +
-                                               "(IP: %s, port: %d, ID: %s)",
+                                               "%s",
                                                message.getClass().toString(),
-                                               destinationPeer.getIp(),
-                                               destinationPeer.getPort(),
-                                               destinationPeer.getHashId()), true);
+                                               destinationPeer), true);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -217,10 +243,7 @@ public class Peer {
     public void setSuccessor(PeerAddress newSuccessor) {
         this.successor = newSuccessor;
 
-        Logging.debugLog(String.format("Updated successor to %s:%d (ID: %s)",
-                                       newSuccessor.getIp(),
-                                       newSuccessor.getPort(),
-                                       newSuccessor.getHashId()),
+        Logging.debugLog(String.format("Updated successor to %s", newSuccessor),
                          false);
     }
 
@@ -231,10 +254,7 @@ public class Peer {
     public void setNextSuccessor(PeerAddress newNextSuccessor) {
         this.nextSuccessor = newNextSuccessor;
 
-        Logging.debugLog(String.format("Updated next successor to %s:%d (ID: %s)",
-                                       newNextSuccessor.getIp(),
-                                       newNextSuccessor.getPort(),
-                                       newNextSuccessor.getHashId()),
+        Logging.debugLog(String.format("Updated next successor to %s", newNextSuccessor),
                          false);
     }
 
