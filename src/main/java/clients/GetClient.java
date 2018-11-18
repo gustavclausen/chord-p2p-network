@@ -45,6 +45,11 @@ public class GetClient {
             if (input instanceof PutMessage) {
                 PutMessage message = (PutMessage) input;
 
+                if (message.getValue() == null) {
+                    System.out.println(String.format("Value not found. Key: %d", message.getKey()));
+                    return;
+                }
+
                 System.out.println(String.format("Key: %d, value: %s", message.getKey(), message.getValue()));
             }
         } catch (SocketException e) {
