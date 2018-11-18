@@ -112,18 +112,20 @@ public class IncomingMessageHandler {
         /*
          * The peer receives its own 'LookupMessage' back.
          * This means that the request has been through all peers - around the ring - in the network, which means that
-         * there is no associated value with the key given by the 'GetClient'. Therefore, it will not be forwarded.
+         * there is no associated value with the key given by the 'GetClient'. Therefore, we will send a "null" value
+         * back to the client to indicate that the value for this key does not exist.
          */
-        if (message.getHashIdOfPeerStartedLookup().compareTo(this.peer.getPeerAddress().getHashId()) == 0) {
+        boolean isOwnMessage = message.getHashIdOfPeerStartedLookup().equals(this.peer.getPeerAddress().getHashId());
+        if (isOwnMessage) {
             Logging.debugLog(String.format("A value for the given key (%d) was not found.", message.getKey()), false);
-            return;
         }
 
         // Check if this peer has the requested data
         String valueToKey = this.peer.getStoredData().get(message.getKey());
 
-        // If that is the case, the peer sends the key and value to the 'GetClient' requesting the data
-        if (valueToKey != null) {
+        // If that is the case, or the peer received its own 'LookupMessage' back,
+        //  the peer sends the key and value (possibly "null") to the 'GetClient' requesting the data
+        if (valueToKey != null || isOwnMessage) {
             try {
                 this.peer.sendMessageToPeer(message.getGetClientAddress(), new PutMessage(message.getKey(),
                                                                                           valueToKey));
@@ -135,6 +137,7 @@ public class IncomingMessageHandler {
         }
         // If this peer does not have the data, the peer forwards the message (hence the request) to its successor
         else {
+            // valueToKey == null && !isOwnMessage
             this.peer.sendMessageToSuccessor(message);
         }
     }
