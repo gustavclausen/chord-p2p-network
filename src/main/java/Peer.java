@@ -91,11 +91,7 @@ public class Peer {
                                   + " Exception: \"" + e.getMessage() + "\""
                                   );
             } finally {
-                try {
-                    this.socket.close();
-                } catch (IOException e) {
-                    // Ignore exception from closing socket
-                }
+                this.abort();
             }
         }
 

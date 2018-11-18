@@ -19,7 +19,6 @@ public class GetClient {
      * Afterwards listen on the port - also taken as argument to program - for any response.
      */
     public static PutMessage get(String peerAddress, int peerPort, int ownPort, int key) {
-    // public static void get(String[] programArguments) {
         String ownIp = Common.getOwnIp();
 
         try {
