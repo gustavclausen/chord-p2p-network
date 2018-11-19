@@ -30,4 +30,13 @@ public class PeerAddress implements Serializable {
     public BigInteger getHashId() {
         return hashId;
     }
+
+    @Override
+    public String toString() {
+        return String.format("%s:%d (ID: %s)",
+                this.getIp(),
+                this.getPort(),
+                this.getHashId()
+        );
+    }
 }

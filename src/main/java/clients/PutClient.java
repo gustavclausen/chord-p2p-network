@@ -14,13 +14,7 @@ public class PutClient {
      * Sends a 'PutMessage' to the peer which address is taken as argument to program.
      * Terminates the process afterwards.
      */
-    public static void put(String[] programArguments) {
-        String peerAddress = programArguments[1];
-        int peerPort = Common.parseInteger(programArguments[2]);
-
-        int key = Common.parseInteger(programArguments[3]);
-        String value = programArguments[4];
-
+    public static void put(String peerAddress, int peerPort, int key, String value) {
         try (
              Socket socket = new Socket(peerAddress, peerPort);
              ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream())
